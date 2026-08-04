@@ -1,0 +1,14 @@
+{
+  "name": "micro-office-chat",
+  "version": "1.0.0",
+  "description": "画面右上に常駐・固定できるウルトラコンパクトリアルタイムオフィスチャット掲示板",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
