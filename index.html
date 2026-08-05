@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Micro Office Chat (Firebase Cloud Online)</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Firebase SDKs (v9 Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+</head>
+<body>
+
+  <!-- 超コンパクトメインウィンドウ container -->
+  <div class="chat-container" id="chatContainer">
+    
+    <!-- ウルトラコンパクトヘッダー -->
+    <header class="app-header" id="dragHeader">
+      <div class="header-title">
+        <span class="app-icon" id="roomThemeIcon">⚡</span>
+        <span class="app-name" id="currentRoomTitle">オフィスチャット</span>
+      </div>
+      <div class="header-actions">
+        <button id="pinBtn" class="icon-btn" title="最前面にピン留め (ON/OFF)">📌</button>
+        <button id="configBtn" class="icon-btn" title="設定・部屋の管理">⚙️</button>
+        <button id="popoutBtn" class="icon-btn" title="小窓ポップアップ表示">↗️</button>
+      </div>
+    </header>
+
+    <!-- 部屋切り替えドロップダウン & 追加ボタン -->
+    <nav class="group-select-bar">
+      <div class="select-wrapper">
+        <span class="room-icon">🏢</span>
+        <select id="roomSelector" title="部屋の切り替え"></select>
+      </div>
+      <button id="addRoomBtn" class="small-add-btn" title="新しい部屋を追加">＋部屋追加</button>
+    </nav>
+
+    <!-- メンバーのオンライン在席表示バー (先頭1文字アバター) -->
+    <section class="members-bar">
+      <div class="members-label">メンバー (在席):</div>
+      <div class="members-list" id="membersList"></div>
+    </section>
+
+    <!-- ツールバー (ログクリア 🧹 / コピー 📋 / ステータス変更) -->
+    <section class="toolbar">
+      <div class="status-selector">
+        <label for="myStatus">自ステータス:</label>
+        <select id="myStatus">
+          <option value="🟢 在席">🟢 在席</option>
+          <option value="🏃 離席中">🏃 離席中</option>
+          <option value="📞 会議中">📞 会議中</option>
+          <option value="🍱 休憩中">🍱 休憩中</option>
+        </select>
+      </div>
+      <div class="tool-actions">
+        <button id="copyLogBtn" class="small-btn" title="チャットログを全コピー">📋 コピー</button>
+        <button id="clearAllBtn" class="small-btn danger-btn" title="チャットログを一括全消去">🧹 消去</button>
+      </div>
+    </section>
+
+    <!-- チャットタイムライン表示エリア -->
+    <main class="chat-timeline" id="chatTimeline">
+      <div class="timeline-empty-notice" id="emptyNotice">
+        💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！
+      </div>
+    </main>
+
+    <!-- ワンタップ・クイック声掛けリアクションボタン -->
+    <section class="quick-stamps" id="quickStampsArea">
+      <button class="stamp-btn" data-stamp="〇 了解">〇 了解</button>
+      <button class="stamp-btn" data-stamp="✕ NG">✕ NG</button>
+      <button class="stamp-btn" data-stamp="🤔 考え中">🤔 考え中</button>
+      <button class="stamp-btn" data-stamp="📞 後で連絡">📞 連絡</button>
+      <button class="stamp-btn" data-stamp="👀 確認中">👀 確認中</button>
+      <button class="stamp-btn" data-stamp="🏃 離席中">🏃 離席</button>
+    </section>
+
+    <!-- 入力フォーム ＋ ファイル添付 -->
+    <footer class="chat-input-area">
+      <div class="file-attachment-preview" id="filePreview" style="display: none;">
+        <span id="fileNameDisplay">file.png</span>
+        <button id="removeFileBtn" class="remove-file-btn">✕</button>
+      </div>
+      <form id="messageForm" class="input-form">
+        <label for="fileInput" class="file-attach-btn" title="ファイル・画像を添付">📎
+          <input type="file" id="fileInput" style="display: none;">
+        </label>
+        <input type="text" id="messageInput" placeholder="ちょっとしたメッセージ..." autocomplete="off">
+        <button type="submit" class="send-btn" id="sendBtn">送信</button>
+      </form>
+    </footer>
+
+  </div>
+
+  <!-- 設定 ＆ 部屋追加・管理モーダル -->
+  <div class="modal-overlay" id="configModal" style="display: none;">
+    <div class="modal-card">
+      <h3>⚙️ 設定 ＆ 部屋（グループ）の管理</h3>
+      <div class="form-group">
+        <label for="userNameInput">あなたの表示名 (苗字):</label>
+        <input type="text" id="userNameInput" placeholder="例: 山田" value="山田">
+        <small>※先頭の1文字（例: 「山」）がアバターになります。</small>
+      </div>
+
+      <hr>
+
+      <h4>➕ 新しい部屋の追加 ＆ カラー設定</h4>
+      <div class="form-group">
+        <label for="newRoomNameInput">部屋名 (例: 佐藤さんと1対1, 営業グループ):</label>
+        <input type="text" id="newRoomNameInput" placeholder="部屋の名前">
+      </div>
+      <div class="form-group">
+        <label for="newRoomIdInput">部屋ID (英数字・共通ID):</label>
+        <input type="text" id="newRoomIdInput" placeholder="例: yamada-sato-direct">
+      </div>
+      <div class="form-group">
+        <label for="newPasscodeInput">合言葉 (パスコード):</label>
+        <input type="password" id="newPasscodeInput" placeholder="知っている人だけ参加可能" value="1234">
+      </div>
+
+      <div class="form-group">
+        <label>🎨 部屋のページカラー (テーマ色):</label>
+        <div class="color-picker-options" id="colorPickerOptions">
+          <button type="button" class="color-btn active" data-color="indigo" style="background: #6366f1;" title="インディゴ"></button>
+          <button type="button" class="color-btn" data-color="emerald" style="background: #10b981;" title="エメラルドグリーン"></button>
+          <button type="button" class="color-btn" data-color="purple" style="background: #8b5cf6;" title="パープル"></button>
+          <button type="button" class="color-btn" data-color="rose" style="background: #f43f5e;" title="ローズレッド"></button>
+          <button type="button" class="color-btn" data-color="amber" style="background: #f59e0b;" title="アンバーオレンジ"></button>
+          <button type="button" class="color-btn" data-color="cyan" style="background: #06b6d4;" title="シアンブルー"></button>
+        </div>
+      </div>
+
+      <button id="addNewRoomConfirmBtn" class="primary-btn" style="width: 100%; margin-top: 6px;">部屋を追加・移動</button>
+
+      <hr>
+
+      <h4>登録済みの部屋一覧</h4>
+      <div id="savedRoomsList" class="saved-rooms-list"></div>
+
+      <div class="modal-actions">
+        <button id="closeModalBtn" class="secondary-btn">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Firebase設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyDTcSTgVeVYix7oJiPVfNXqH3QtNzuduuM",
+      authDomain: "micro-chat-c25bb.firebaseapp.com",
+      projectId: "micro-chat-c25bb",
+      storageBucket: "micro-chat-c25bb.firebasestorage.app",
+      messagingSenderId: "384583388483",
+      appId: "1:384583388483:web:7c6dfe83100b89e1efb3f6",
+      measurementId: "G-3TRBLWK51N",
+      databaseURL: "https://micro-chat-c25bb-default-rtdb.firebaseio.com"
+    };
+
+    let db = null;
+    try {
+      if (typeof firebase !== 'undefined') {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+      }
+    } catch (e) {
+      console.warn("Firebase Init fallback to BroadcastChannel:", e);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const bc = new BroadcastChannel('micro_office_chat_channel');
+
+      const chatContainer = document.getElementById('chatContainer');
+      const pinBtn = document.getElementById('pinBtn');
+      const configBtn = document.getElementById('configBtn');
+      const popoutBtn = document.getElementById('popoutBtn');
+      const roomSelector = document.getElementById('roomSelector');
+      const addRoomBtn = document.getElementById('addRoomBtn');
+      const currentRoomTitle = document.getElementById('currentRoomTitle');
+      const membersList = document.getElementById('membersList');
+      const myStatusSelect = document.getElementById('myStatus');
+      const copyLogBtn = document.getElementById('copyLogBtn');
+      const clearAllBtn = document.getElementById('clearAllBtn');
+      const chatTimeline = document.getElementById('chatTimeline');
+      const messageForm = document.getElementById('messageForm');
+      const messageInput = document.getElementById('messageInput');
+      const fileInput = document.getElementById('fileInput');
+      const filePreview = document.getElementById('filePreview');
+      const fileNameDisplay = document.getElementById('fileNameDisplay');
+      const removeFileBtn = document.getElementById('removeFileBtn');
+      const quickStampsArea = document.getElementById('quickStampsArea');
+
+      const configModal = document.getElementById('configModal');
+      const userNameInput = document.getElementById('userNameInput');
+      const newRoomNameInput = document.getElementById('newRoomNameInput');
+      const newRoomIdInput = document.getElementById('newRoomIdInput');
+      const newPasscodeInput = document.getElementById('newPasscodeInput');
+      const colorPickerOptions = document.getElementById('colorPickerOptions');
+      const addNewRoomConfirmBtn = document.getElementById('addNewRoomConfirmBtn');
+      const savedRoomsList = document.getElementById('savedRoomsList');
+      const closeModalBtn = document.getElementById('closeModalBtn');
+
+      let selectedColorTheme = 'indigo';
+
+      let appState = JSON.parse(localStorage.getItem('micro_office_chat_state')) || {
+        userName: '山田',
+        userStatus: '🟢 在席',
+        activeRoomId: 'general',
+        rooms: [
+          { id: 'general', name: '全体連絡用', passcode: '1234', color: 'indigo' },
+          { id: 'sales-team', name: '営業チーム', passcode: '1234', color: 'emerald' }
+        ],
+        isPinned: false
+      };
+
+      const myId = 'user_' + Math.random().toString(36).substr(2, 6);
+      let activeMembers = {};
+      let attachedFile = null;
+      let currentMessages = [];
+      let activeFirebaseListener = null;
+
+      if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+
+      function init() {
+        userNameInput.value = appState.userName;
+        myStatusSelect.value = appState.userStatus;
+        updateRoomSelectorUI();
+        applyPinState(appState.isPinned);
+        applyRoomTheme();
+        subscribeCurrentRoom();
+        announcePresence();
+        bindStampButtons();
+      }
+
+      function saveState() {
+        localStorage.setItem('micro_office_chat_state', JSON.stringify(appState));
+      }
+
+      function updateRoomSelectorUI() {
+        roomSelector.innerHTML = '';
+        appState.rooms.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.id;
+          opt.textContent = r.name;
+          if (r.id === appState.activeRoomId) opt.selected = true;
+          roomSelector.appendChild(opt);
+        });
+      }
+
+      function getCurrentRoom() {
+        return appState.rooms.find(r => r.id === appState.activeRoomId) || appState.rooms[0];
+      }
+
+      function applyRoomTheme() {
+        const curRoom = getCurrentRoom();
+        if (!curRoom) return;
+
+        currentRoomTitle.textContent = curRoom.name;
+
+        const colorMap = {
+          indigo: { accent: '#6366f1', hover: '#4f46e5', light: 'rgba(99, 102, 241, 0.15)' },
+          emerald: { accent: '#10b981', hover: '#059669', light: 'rgba(16, 185, 129, 0.15)' },
+          purple: { accent: '#8b5cf6', hover: '#7c3aed', light: 'rgba(139, 92, 246, 0.15)' },
+          rose: { accent: '#f43f5e', hover: '#e11d48', light: 'rgba(244, 63, 94, 0.15)' },
+          amber: { accent: '#f59e0b', hover: '#d97706', light: 'rgba(245, 158, 11, 0.15)' },
+          cyan: { accent: '#06b6d4', hover: '#0891b2', light: 'rgba(6, 182, 212, 0.15)' }
+        };
+
+        const theme = colorMap[curRoom.color || 'indigo'] || colorMap.indigo;
+        document.documentElement.style.setProperty('--accent-color', theme.accent);
+        document.documentElement.style.setProperty('--accent-hover', theme.hover);
+        document.documentElement.style.setProperty('--accent-light', theme.light);
+      }
+
+      function subscribeCurrentRoom() {
+        const curRoom = getCurrentRoom();
+        if (!curRoom) return;
+
+        if (db) {
+          if (activeFirebaseListener) {
+            db.ref(`rooms/${activeFirebaseListener}/messages`).off();
+            db.ref(`rooms/${activeFirebaseListener}/members`).off();
+          }
+
+          activeFirebaseListener = curRoom.id;
+
+          db.ref(`rooms/${curRoom.id}/messages`).limitToLast(50).on('value', (snapshot) => {
+            const data = snapshot.val();
+            currentMessages = data ? Object.values(data) : [];
+            renderMessages(currentMessages);
+          });
+
+          db.ref(`rooms/${curRoom.id}/members`).on('value', (snapshot) => {
+            const data = snapshot.val();
+            activeMembers = data || {};
+            renderMembers();
+          });
+        }
+      }
+
+      function announcePresence() {
+        const curRoom = getCurrentRoom();
+        if (!curRoom) return;
+        const avatar = (appState.userName || '名').trim().charAt(0).toUpperCase();
+
+        const memberObj = {
+          id: myId,
+          name: appState.userName,
+          avatarLetter: avatar,
+          status: appState.userStatus,
+          groupId: curRoom.id,
+          timestamp: Date.now()
+        };
+
+        if (db) {
+          const userRef = db.ref(`rooms/${curRoom.id}/members/${myId}`);
+          userRef.set(memberObj);
+          userRef.onDisconnect().remove();
+        }
+
+        activeMembers[myId] = memberObj;
+        renderMembers();
+
+        bc.postMessage({ type: 'PRESENCE_PING', member: memberObj });
+      }
+
+      function applyPinState(isPinned) {
+        appState.isPinned = isPinned;
+        if (isPinned) {
+          chatContainer.classList.add('pinned');
+          pinBtn.classList.add('active');
+          pinBtn.title = "ピン留め中 (最前面固定)";
+        } else {
+          chatContainer.classList.remove('pinned');
+          pinBtn.classList.remove('active');
+          pinBtn.title = "最前面にピン留め (ON/OFF)";
+        }
+        saveState();
+      }
+
+      pinBtn.addEventListener('click', () => applyPinState(!appState.isPinned));
+
+      popoutBtn.addEventListener('click', () => {
+        const w = 340, h = 550, left = window.screen.width - w - 20, top = 40;
+        window.open(window.location.href, 'MicroOfficeChatPopout', `width=${w},height=${h},left=${left},top=${top},resizable=yes`);
+      });
+
+      roomSelector.addEventListener('change', (e) => {
+        appState.activeRoomId = e.target.value;
+        saveState();
+        applyRoomTheme();
+        subscribeCurrentRoom();
+        announcePresence();
+      });
+
+      addRoomBtn.addEventListener('click', () => openConfigModal());
+      configBtn.addEventListener('click', () => openConfigModal());
+
+      function openConfigModal() {
+        userNameInput.value = appState.userName;
+        renderSavedRoomsList();
+        configModal.style.display = 'flex';
+      }
+
+      colorPickerOptions.addEventListener('click', (e) => {
+        if (e.target.classList.contains('color-btn')) {
+          colorPickerOptions.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
+          e.target.classList.add('active');
+          selectedColorTheme = e.target.dataset.color;
+        }
+      });
+
+      closeModalBtn.addEventListener('click', () => {
+        appState.userName = userNameInput.value.trim() || '匿名';
+        saveState();
+        configModal.style.display = 'none';
+        announcePresence();
+      });
+
+      addNewRoomConfirmBtn.addEventListener('click', () => {
+        const name = newRoomNameInput.value.trim();
+        const id = newRoomIdInput.value.trim();
+        const passcode = newPasscodeInput.value.trim();
+
+        if (!name || !id) {
+          alert('部屋名と部屋IDを入力してください。');
+          return;
+        }
+
+        const existing = appState.rooms.find(r => r.id === id);
+        if (!existing) {
+          appState.rooms.push({ id, name, passcode, color: selectedColorTheme });
+        } else {
+          existing.name = name;
+          existing.passcode = passcode;
+          existing.color = selectedColorTheme;
+        }
+
+        appState.activeRoomId = id;
+        saveState();
+        updateRoomSelectorUI();
+        applyRoomTheme();
+
+        newRoomNameInput.value = '';
+        newRoomIdInput.value = '';
+        configModal.style.display = 'none';
+
+        subscribeCurrentRoom();
+        announcePresence();
+      });
+
+      function renderSavedRoomsList() {
+        savedRoomsList.innerHTML = '';
+        appState.rooms.forEach(r => {
+          const item = document.createElement('div');
+          item.className = 'saved-room-item';
+          item.innerHTML = `
+            <span>🏢 <strong>${escapeHTML(r.name)}</strong> (ID: ${escapeHTML(r.id)})</span>
+            ${appState.rooms.length > 1 ? `<button onclick="deleteRoom('${r.id}')" class="remove-room-btn">削除</button>` : ''}
+          `;
+          savedRoomsList.appendChild(item);
+        });
+      }
+
+      window.deleteRoom = function(roomId) {
+        if (confirm('この部屋リストから削除しますか？')) {
+          appState.rooms = appState.rooms.filter(r => r.id !== roomId);
+          if (appState.activeRoomId === roomId) {
+            appState.activeRoomId = appState.rooms[0].id;
+          }
+          saveState();
+          updateRoomSelectorUI();
+          applyRoomTheme();
+          renderSavedRoomsList();
+          subscribeCurrentRoom();
+          announcePresence();
+        }
+      };
+
+      myStatusSelect.addEventListener('change', (e) => {
+        appState.userStatus = e.target.value;
+        saveState();
+        announcePresence();
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          if (file.size > 8 * 1024 * 1024) {
+            alert('ファイルサイズは8MB以下にしてください。');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            attachedFile = { name: file.name, type: file.type, data: evt.target.result };
+            fileNameDisplay.textContent = `📎 ${file.name}`;
+            filePreview.style.display = 'flex';
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      removeFileBtn.addEventListener('click', () => {
+        attachedFile = null;
+        fileInput.value = '';
+        filePreview.style.display = 'none';
+      });
+
+      messageForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const text = messageInput.value.trim();
+        if (!text && !attachedFile) return;
+
+        sendMessage({ text, file: attachedFile });
+
+        messageInput.value = '';
+        attachedFile = null;
+        fileInput.value = '';
+        filePreview.style.display = 'none';
+      });
+
+      function bindStampButtons() {
+        const btns = quickStampsArea.querySelectorAll('.stamp-btn');
+        btns.forEach(btn => {
+          btn.onclick = () => {
+            sendMessage({ stamp: btn.dataset.stamp });
+          };
+        });
+      }
+
+      function sendMessage({ text, stamp, file }) {
+        const curRoom = getCurrentRoom();
+        if (!curRoom) return;
+        const gId = curRoom.id;
+
+        const avatar = (appState.userName || '名').trim().charAt(0).toUpperCase();
+        const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+        const msgObj = {
+          id: msgId,
+          senderName: appState.userName,
+          avatarLetter: avatar,
+          text: text || '',
+          stamp: stamp || null,
+          file: file || null,
+          timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+          groupId: gId
+        };
+
+        if (db) {
+          db.ref(`rooms/${gId}/messages/${msgId}`).set(msgObj);
+        } else {
+          currentMessages.push(msgObj);
+          renderSingleMessage(msgObj);
+          scrollToBottom();
+        }
+
+        bc.postMessage({ type: 'NEW_MSG', msg: msgObj });
+      }
+
+      copyLogBtn.addEventListener('click', () => {
+        const curRoom = getCurrentRoom();
+        if (currentMessages.length === 0) {
+          alert('コピーするログがありません。');
+          return;
+        }
+
+        let textToCopy = `=== ${curRoom.name} チャット全ログ (${new Date().toLocaleDateString()}) ===\n\n`;
+        currentMessages.forEach(m => {
+          const content = m.stamp ? `[ ${m.stamp} ]` : m.text;
+          textToCopy += `[${m.timestamp}] ${m.senderName}: ${content}\n`;
+        });
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          const orig = copyLogBtn.textContent;
+          copyLogBtn.textContent = '✅ コピー完了!';
+          setTimeout(() => copyLogBtn.textContent = orig, 2000);
+        });
+      });
+
+      clearAllBtn.addEventListener('click', () => {
+        if (confirm('この部屋のチャットログを一括全消去しますか？\n（オンラインの全員の画面からも削除されます）')) {
+          const curRoom = getCurrentRoom();
+          if (db) {
+            db.ref(`rooms/${curRoom.id}/messages`).remove();
+          } else {
+            currentMessages = [];
+            renderMessages([]);
+          }
+          bc.postMessage({ type: 'CLEAR_ALL', groupId: curRoom.id });
+        }
+      });
+
+      bc.onmessage = (e) => {
+        const data = e.data;
+        if (!data) return;
+
+        if (data.type === 'NEW_MSG' && !db) {
+          const msg = data.msg;
+          if (msg.groupId === getCurrentRoom().id) {
+            currentMessages.push(msg);
+            renderSingleMessage(msg);
+            scrollToBottom();
+          }
+          if (document.hidden || !document.hasFocus()) {
+            showDesktopNotification(msg);
+          }
+        }
+      };
+
+      function renderMembers() {
+        membersList.innerHTML = '';
+        const curRoom = getCurrentRoom();
+
+        const myAvatar = (appState.userName || '名').trim().charAt(0).toUpperCase();
+        addAvatarBadge(myAvatar, `${appState.userName} (${appState.userStatus})`, true);
+
+        Object.values(activeMembers).forEach(m => {
+          if (m.id !== myId && m.groupId === curRoom.id) {
+            addAvatarBadge(m.avatarLetter, `${m.name} (${m.status})`, true);
+          }
+        });
+      }
+
+      function addAvatarBadge(letter, titleText, isOnline) {
+        const badge = document.createElement('div');
+        badge.className = `avatar-badge ${isOnline ? 'online' : ''}`;
+        badge.textContent = letter;
+        badge.title = titleText;
+        membersList.appendChild(badge);
+      }
+
+      function renderMessages(messages) {
+        chatTimeline.innerHTML = '';
+        if (messages.length === 0) {
+          chatTimeline.innerHTML = `<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>`;
+          return;
+        }
+        messages.forEach(m => renderSingleMessage(m));
+        scrollToBottom();
+      }
+
+      function renderSingleMessage(msg) {
+        const notice = chatTimeline.querySelector('.timeline-empty-notice');
+        if (notice) notice.remove();
+
+        const item = document.createElement('div');
+        item.className = 'msg-item';
+        item.id = `msg_${msg.id}`;
+
+        let bodyContent = '';
+        if (msg.stamp) {
+          bodyContent = `<div class="msg-stamp">${escapeHTML(msg.stamp)}</div>`;
+        } else if (msg.text) {
+          bodyContent = `<div class="msg-text">${escapeHTML(msg.text)}</div>`;
+        }
+
+        if (msg.file) {
+          if (msg.file.type.startsWith('image/')) {
+            bodyContent += `<div style="margin-top:4px;"><img src="${msg.file.data}" style="max-width:100%; border-radius:4px;" /></div>`;
+          } else {
+            bodyContent += `<div style="margin-top:4px;"><a href="${msg.file.data}" download="${msg.file.name}" style="color:#818cf8; font-size:11px;">💾 ${escapeHTML(msg.file.name)}</a></div>`;
+          }
+        }
+
+        item.innerHTML = `
+          <div class="msg-avatar">${escapeHTML(msg.avatarLetter)}</div>
+          <div class="msg-body">
+            <div class="msg-header">
+              <span class="msg-sender">${escapeHTML(msg.senderName)}</span>
+              <span class="msg-time">${msg.timestamp}</span>
+            </div>
+            ${bodyContent}
+            <button class="msg-delete-btn" onclick="deleteSingleMsg('${msg.id}')" title="削除">✕</button>
+          </div>
+        `;
+
+        chatTimeline.appendChild(item);
+      }
+
+      window.deleteSingleMsg = function(msgId) {
+        const curRoom = getCurrentRoom();
+        if (db) {
+          db.ref(`rooms/${curRoom.id}/messages/${msgId}`).remove();
+        } else {
+          currentMessages = currentMessages.filter(m => m.id !== msgId);
+          renderMessages(currentMessages);
+        }
+      };
+
+      function scrollToBottom() {
+        chatTimeline.scrollTop = chatTimeline.scrollHeight;
+      }
+
+      function showDesktopNotification(msg) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const curRoom = getCurrentRoom();
+          const n = new Notification(`⚡ [${curRoom.name}] ${msg.senderName}さんからの声掛け`, {
+            body: msg.stamp || msg.text || 'ファイルが届きました',
+            icon: '/favicon.ico'
+          });
+          n.onclick = () => window.focus();
+        }
+      }
+
+      function escapeHTML(str) {
+        return (str || '').replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+      }
+
+      let isDragging = false, offsetX, offsetY;
+      const dragHeader = document.getElementById('dragHeader');
+      dragHeader.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.header-actions')) return;
+        isDragging = true;
+        offsetX = e.clientX - chatContainer.getBoundingClientRect().left;
+        offsetY = e.clientY - chatContainer.getBoundingClientRect().top;
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+          chatContainer.style.position = 'fixed';
+          chatContainer.style.left = `${e.clientX - offsetX}px`;
+          chatContainer.style.top = `${e.clientY - offsetY}px`;
+        }
+      });
+      document.addEventListener('mouseup', () => isDragging = false);
+
+      init();
+      setInterval(announcePresence, 5000);
+    });
+  </script>
+</body>
+</html>
