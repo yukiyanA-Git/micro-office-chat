@@ -123,7 +123,7 @@
       </div>
       <div class="form-group">
         <label for="editPasscodeInput">合言葉 (パスコード):</label>
-        <input type="text" id="editPasscodeInput" placeholder="例: 1234">
+        <input type="text" id="editPasscodeInput" placeholder="例: 1234 (空欄可)">
       </div>
 
       <div class="form-group">
@@ -364,10 +364,6 @@
       }
 
       function init() {
-        if (!appState.userName) {
-          setTimeout(() => openConfigModal(), 300);
-        }
-
         userNameInput.value = appState.userName;
         myStatusSelect.value = appState.userStatus;
         updateRoomSelectorUI();
