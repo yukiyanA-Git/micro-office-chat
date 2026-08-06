@@ -299,7 +299,13 @@
         };
       }
 
-      const myId = 'user_' + Math.random().toString(36).substr(2, 6);
+      // 端末・ブラウザごとのユニークユーザーIDを localStorage に固定化（リロードでの重複カウントを100%防止）
+      let myId = localStorage.getItem('micro_office_chat_uid');
+      if (!myId) {
+        myId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        localStorage.setItem('micro_office_chat_uid', myId);
+      }
+
       let activeMembers = {};
       let attachedFile = null;
       let currentMessages = [];
@@ -332,7 +338,7 @@
       });
       chatTimeline.addEventListener('scroll', markCurrentMessagesAsRead, { passive: true });
 
-      // スマホのスリープ復帰・画面フォーカス・タブ復帰時に通信再同期＆既読更新
+      // スマホのスリープ復帰・画面フォーカス・タブ復帰時に Firebase 接続を即座に復旧（goOnline）＆データ同期
       window.addEventListener('focus', () => handleMobileResume());
       window.addEventListener('pageshow', () => handleMobileResume());
       document.addEventListener('visibilitychange', () => {
@@ -342,6 +348,9 @@
       });
 
       function handleMobileResume() {
+        if (db) {
+          db.goOnline(); // 明示的にリアルタイム接続を即座に再起動
+        }
         markCurrentMessagesAsRead();
         subscribeCurrentRoom();
         announcePresence();
@@ -404,6 +413,7 @@
       resetStateBtn.addEventListener('click', () => {
         if (confirm('保存された名前や部屋設定をリセットしますか？')) {
           localStorage.removeItem('micro_office_chat_state');
+          localStorage.removeItem('micro_office_chat_uid');
           location.reload();
         }
       });
@@ -494,6 +504,8 @@
         const currentSessionDate = getSessionDateString(new Date(), purgeTime);
 
         if (db) {
+          db.goOnline(); // 通信を即座に再接続
+
           if (activeFirebaseListenerKey) {
             db.ref(`rooms/${activeFirebaseListenerKey}/messages`).off();
             db.ref(`rooms/${activeFirebaseListenerKey}/members`).off();
@@ -975,13 +987,20 @@
           }
         }
 
+        // 既読カウントの厳密な集計：送信者以外のユニークな「相手の名前」の数のみをカウント
         const reads = msg.reads || {};
-        const readKeys = Object.keys(reads);
-        const readCount = readKeys.length;
+        const readerNames = new Set();
+        Object.values(reads).forEach(r => {
+          if (r.name && r.name !== msg.senderName) {
+            readerNames.add(r.name);
+          }
+        });
+        
+        const readCount = readerNames.size;
         
         let readBadgeHTML = '';
         if (readCount > 0) {
-          const names = Object.values(reads).map(r => r.name).join(', ');
+          const names = Array.from(readerNames).join(', ');
           readBadgeHTML = `<div class="msg-read-status" title="既読: ${escapeHTML(names)}">👀 既読 ${readCount}</div>`;
         }
 
