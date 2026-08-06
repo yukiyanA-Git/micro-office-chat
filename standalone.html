@@ -240,6 +240,11 @@
         Notification.requestPermission();
       }
 
+      function getTodayDateString() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+
       function getRoomFirebaseKey(room) {
         if (!room) return 'general_1234';
         const passcodeStr = (room.passcode || 'none').trim();
@@ -395,6 +400,7 @@
         isInitialLoad = true;
 
         const roomKey = getRoomFirebaseKey(curRoom);
+        const todayStr = getTodayDateString();
 
         if (db) {
           if (activeFirebaseListenerKey) {
@@ -406,10 +412,27 @@
 
           db.ref(`rooms/${roomKey}/messages`).limitToLast(50).on('value', (snapshot) => {
             const data = snapshot.val();
-            const newMsgs = data ? Object.values(data) : [];
+            let allMsgs = data ? Object.values(data) : [];
             
-            if (!isInitialLoad && newMsgs.length > currentMessages.length) {
-              const latestMsg = newMsgs[newMsgs.length - 1];
+            const oldMsgIds = [];
+            const todayMsgs = [];
+
+            allMsgs.forEach(m => {
+              if (m.dateStr && m.dateStr !== todayStr) {
+                oldMsgIds.push(m.id);
+              } else {
+                todayMsgs.push(m);
+              }
+            });
+
+            if (oldMsgIds.length > 0) {
+              oldMsgIds.forEach(id => {
+                db.ref(`rooms/${roomKey}/messages/${id}`).remove();
+              });
+            }
+
+            if (!isInitialLoad && todayMsgs.length > currentMessages.length) {
+              const latestMsg = todayMsgs[todayMsgs.length - 1];
               if (latestMsg.senderName !== appState.userName) {
                 unreadCount++;
                 updateBadgeUI();
@@ -421,7 +444,7 @@
             }
             isInitialLoad = false;
 
-            currentMessages = newMsgs;
+            currentMessages = todayMsgs;
             renderMessages(currentMessages);
           });
 
@@ -429,14 +452,6 @@
             const data = snapshot.val();
             activeMembers = data || {};
             renderMembers();
-
-            const memberIds = Object.keys(activeMembers);
-            if (memberIds.length <= 1) {
-              db.ref(`rooms/${roomKey}/messages`).onDisconnect().remove();
-              db.ref(`rooms/${roomKey}/members`).onDisconnect().remove();
-            } else {
-              db.ref(`rooms/${roomKey}/messages`).onDisconnect().cancel();
-            }
           });
         }
       }
@@ -668,6 +683,7 @@
           stamp: stamp || null,
           file: file || null,
           timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+          dateStr: getTodayDateString(),
           groupId: roomKey,
           reads: initialReads
         };
@@ -832,7 +848,7 @@
         if (db) {
           db.ref(`rooms/${roomKey}/messages/${msgId}`).remove();
         } else {
-          currentMessages.push(msgId);
+          currentMessages = currentMessages.filter(m => m.id !== msgId);
           renderMessages(currentMessages);
         }
       };
