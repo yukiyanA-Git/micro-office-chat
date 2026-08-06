@@ -28,7 +28,7 @@
       <div class="header-actions">
         <button id="soundToggleBtn" class="icon-btn active" title="通知音 (ON/OFF)">🔊</button>
         <button id="pinBtn" class="icon-btn" title="最前面にピン留め (ON/OFF)">📌</button>
-        <button id="configBtn" class="icon-btn" title="設定・部屋の管理">⚙️</button>
+        <button id="configBtn" class="icon-btn" title="現在の部屋の設定・変更">⚙️</button>
         <button id="popoutBtn" class="icon-btn" title="小窓ポップアップ表示">↗️</button>
       </div>
     </header>
@@ -99,10 +99,10 @@
 
   </div>
 
-  <!-- 設定 ＆ 部屋追加・編集モーダル -->
+  <!-- 【⚙️ 設定モーダル】：現在の部屋の編集・確認 -->
   <div class="modal-overlay" id="configModal" style="display: none;">
     <div class="modal-card">
-      <h3>⚙️ 設定 ＆ 部屋（グループ）の管理</h3>
+      <h3>⚙️ 設定 ＆ 部屋の編集</h3>
       <div class="form-group">
         <label for="userNameInput">あなたの表示名 (苗字):</label>
         <input type="text" id="userNameInput" placeholder="例: 苗字または名前を入力">
@@ -112,18 +112,18 @@
       <hr>
 
       <!-- 現在開いている部屋の編集・確認セクション -->
-      <h4 id="editRoomSectionTitle">✏️ 現在の部屋設定の変更</h4>
+      <h4 id="editRoomSectionTitle">✏️ 現在の部屋の設定変更</h4>
       <div class="form-group">
         <label for="editRoomNameInput">部屋名:</label>
         <input type="text" id="editRoomNameInput" placeholder="部屋の名前">
       </div>
       <div class="form-group">
-        <label for="editRoomIdInput">部屋ID (閲覧のみ):</label>
+        <label for="editRoomIdInput">部屋ID (部屋IDは編集できません):</label>
         <input type="text" id="editRoomIdInput" disabled style="opacity:0.7; cursor:not-allowed;">
       </div>
       <div class="form-group">
         <label for="editPasscodeInput">合言葉 (パスコード):</label>
-        <input type="text" id="editPasscodeInput" placeholder="合言葉">
+        <input type="text" id="editPasscodeInput" placeholder="例: 1234">
       </div>
 
       <div class="form-group">
@@ -157,37 +157,7 @@
         </div>
       </div>
 
-      <button id="saveCurrentRoomConfigBtn" class="primary-btn" style="width: 100%; margin-top: 4px; margin-bottom: 8px;">💾 現在の部屋設定を更新</button>
-
-      <hr>
-
-      <!-- 新しい部屋を追加するアコーディオン・折りたたみ/追加エリア -->
-      <details id="newRoomDetailsArea">
-        <summary style="cursor:pointer; font-weight:700; font-size:10.5px; color:var(--accent-color); margin: 4px 0;">➕ 新しい部屋を追加・参加する</summary>
-        <div style="margin-top:6px; padding: 6px; background: rgba(0,0,0,0.2); border-radius: 4px;">
-          <div class="form-group">
-            <label for="newRoomNameInput">部屋名:</label>
-            <input type="text" id="newRoomNameInput" placeholder="例: プロジェクトB">
-          </div>
-          <div class="form-group">
-            <label for="newRoomIdInput">部屋ID (英数字):</label>
-            <input type="text" id="newRoomIdInput" placeholder="例: room-02">
-          </div>
-          <div class="form-group">
-            <label for="newPasscodeInput">合言葉 (パスコード):</label>
-            <input type="text" id="newPasscodeInput" placeholder="例: 1234">
-          </div>
-          <div class="form-group">
-            <label for="newPurgeTimeSelect">⏰ 自動ログクリア時刻:</label>
-            <select id="newPurgeTimeSelect">
-              <option value="00:00" selected>00:00 (深夜0時)</option>
-              <option value="05:00">05:00 (早朝5時)</option>
-              <option value="09:00">09:00 (朝9時)</option>
-            </select>
-          </div>
-          <button id="addNewRoomConfirmBtn" class="primary-btn" style="width: 100%; margin-top: 4px;">＋ 部屋を追加して移動</button>
-        </div>
-      </details>
+      <button id="saveCurrentRoomConfigBtn" class="primary-btn" style="width: 100%; margin-top: 4px; margin-bottom: 8px;">💾 設定を更新して保存</button>
 
       <hr>
 
@@ -196,7 +166,43 @@
 
       <div class="modal-actions" style="justify-content: space-between;">
         <button id="resetStateBtn" class="danger-btn small-btn" style="padding: 4px 8px;">🗑️ 登録名をリセット</button>
-        <button id="closeModalBtn" class="secondary-btn">閉じる</button>
+        <button id="closeConfigModalBtn" class="secondary-btn">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 【＋部屋追加 モーダル】：新規部屋の作成・参加 -->
+  <div class="modal-overlay" id="addRoomModal" style="display: none;">
+    <div class="modal-card">
+      <h3>➕ 新しい部屋を作成・参加する</h3>
+      
+      <div class="form-group">
+        <label for="newRoomNameInput">部屋名 (例: 営業チーム, プロジェクトA):</label>
+        <input type="text" id="newRoomNameInput" placeholder="部屋の名前を入力">
+      </div>
+      <div class="form-group">
+        <label for="newRoomIdInput">部屋ID (英数字・共有用ID):</label>
+        <input type="text" id="newRoomIdInput" placeholder="例: room-01">
+      </div>
+      <div class="form-group">
+        <label for="newPasscodeInput">合言葉 (パスコード):</label>
+        <input type="text" id="newPasscodeInput" placeholder="例: 1234 (空欄可)">
+      </div>
+      <div class="form-group">
+        <label for="newPurgeTimeSelect">⏰ 毎日の自動ログクリア時刻:</label>
+        <select id="newPurgeTimeSelect">
+          <option value="00:00" selected>00:00 (深夜0時・デフォルト)</option>
+          <option value="01:00">01:00 (深夜1時)</option>
+          <option value="05:00">05:00 (早朝5時)</option>
+          <option value="09:00">09:00 (朝9時)</option>
+          <option value="12:00">12:00 (正午)</option>
+          <option value="18:00">18:00 (夕方6時)</option>
+        </select>
+      </div>
+      
+      <div class="modal-actions" style="justify-content: space-between; margin-top: 12px;">
+        <button id="closeAddRoomModalBtn" class="secondary-btn">キャンセル</button>
+        <button id="addNewRoomConfirmBtn" class="primary-btn">＋ 部屋を作成して移動</button>
       </div>
     </div>
   </div>
@@ -248,9 +254,9 @@
       const removeFileBtn = document.getElementById('removeFileBtn');
       const quickStampsArea = document.getElementById('quickStampsArea');
 
+      // ⚙️ 設定モーダル用要素
       const configModal = document.getElementById('configModal');
       const userNameInput = document.getElementById('userNameInput');
-      
       const editRoomSectionTitle = document.getElementById('editRoomSectionTitle');
       const editRoomNameInput = document.getElementById('editRoomNameInput');
       const editRoomIdInput = document.getElementById('editRoomIdInput');
@@ -258,17 +264,18 @@
       const editPurgeTimeSelect = document.getElementById('editPurgeTimeSelect');
       const editColorPickerOptions = document.getElementById('editColorPickerOptions');
       const saveCurrentRoomConfigBtn = document.getElementById('saveCurrentRoomConfigBtn');
+      const savedRoomsList = document.getElementById('savedRoomsList');
+      const closeConfigModalBtn = document.getElementById('closeConfigModalBtn');
+      const resetStateBtn = document.getElementById('resetStateBtn');
 
-      const newRoomDetailsArea = document.getElementById('newRoomDetailsArea');
+      // ➕ 新規部屋追加モーダル用要素
+      const addRoomModal = document.getElementById('addRoomModal');
       const newRoomNameInput = document.getElementById('newRoomNameInput');
       const newRoomIdInput = document.getElementById('newRoomIdInput');
       const newPasscodeInput = document.getElementById('newPasscodeInput');
       const newPurgeTimeSelect = document.getElementById('newPurgeTimeSelect');
       const addNewRoomConfirmBtn = document.getElementById('addNewRoomConfirmBtn');
-      
-      const savedRoomsList = document.getElementById('savedRoomsList');
-      const closeModalBtn = document.getElementById('closeModalBtn');
-      const resetStateBtn = document.getElementById('resetStateBtn');
+      const closeAddRoomModalBtn = document.getElementById('closeAddRoomModalBtn');
 
       let selectedEditColorTheme = 'indigo';
       let isSoundEnabled = true;
@@ -284,9 +291,9 @@
         appState = {
           userName: '',
           userStatus: '🟢 在席',
-          activeRoomId: 'general',
+          activeRoomId: 'room1',
           rooms: [
-            { id: 'general', name: 'メインルーム', passcode: '1234', color: 'indigo', purgeTime: '00:00' }
+            { id: 'room1', name: 'トークルーム1', passcode: '', color: 'indigo', purgeTime: '00:00' }
           ],
           isPinned: false
         };
@@ -313,7 +320,7 @@
       }
 
       function getRoomFirebaseKey(room) {
-        if (!room) return 'general_1234';
+        if (!room) return 'room1';
         const passcodeStr = (room.passcode || 'none').trim();
         return `${room.id}_${passcodeStr}`;
       }
@@ -379,7 +386,7 @@
       }
 
       resetStateBtn.addEventListener('click', () => {
-        if (confirm('保存された名前や部屋設定を初期リセットしますか？')) {
+        if (confirm('保存された名前や部屋設定をリセットしますか？')) {
           localStorage.removeItem('micro_office_chat_state');
           location.reload();
         }
@@ -583,20 +590,11 @@
         announcePresence();
       });
 
-      addRoomBtn.addEventListener('click', () => {
-        openConfigModal();
-        if (newRoomDetailsArea) newRoomDetailsArea.open = true;
-      });
-
+      // ⚙️ 設定ボタン ➔ 【現在の部屋の編集】モーダルを開く
       configBtn.addEventListener('click', () => openConfigModal());
 
       function openConfigModal() {
         userNameInput.value = appState.userName;
-
-        // 新規部屋追加フォームの入力欄を毎開時に綺麗クリア
-        newRoomNameInput.value = '';
-        newRoomIdInput.value = '';
-        newPasscodeInput.value = '';
 
         const curRoom = getCurrentRoom();
         if (curRoom) {
@@ -619,6 +617,13 @@
         renderSavedRoomsList();
         configModal.style.display = 'flex';
       }
+
+      closeConfigModalBtn.addEventListener('click', () => {
+        appState.userName = userNameInput.value.trim();
+        saveState();
+        configModal.style.display = 'none';
+        announcePresence();
+      });
 
       editColorPickerOptions.addEventListener('click', (e) => {
         if (e.target.classList.contains('color-btn')) {
@@ -657,11 +662,19 @@
         announcePresence();
       });
 
-      closeModalBtn.addEventListener('click', () => {
-        appState.userName = userNameInput.value.trim();
-        saveState();
-        configModal.style.display = 'none';
-        announcePresence();
+      // ➕ 部屋追加ボタン ➔ 【新規部屋の作成】専用モーダルを開く
+      addRoomBtn.addEventListener('click', () => openAddRoomModal());
+
+      function openAddRoomModal() {
+        newRoomNameInput.value = '';
+        newRoomIdInput.value = '';
+        newPasscodeInput.value = '';
+        newPurgeTimeSelect.value = '00:00';
+        addRoomModal.style.display = 'flex';
+      }
+
+      closeAddRoomModalBtn.addEventListener('click', () => {
+        addRoomModal.style.display = 'none';
       });
 
       addNewRoomConfirmBtn.addEventListener('click', () => {
@@ -693,7 +706,7 @@
         newRoomNameInput.value = '';
         newRoomIdInput.value = '';
         newPasscodeInput.value = '';
-        configModal.style.display = 'none';
+        addRoomModal.style.display = 'none';
 
         subscribeCurrentRoom();
         announcePresence();
