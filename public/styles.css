@@ -28,6 +28,7 @@
 html, body {
   width: 100%;
   height: 100%;
+  height: 100dvh;
   background-color: var(--bg-primary);
   color: var(--text-main);
   font-size: 11px;
@@ -37,6 +38,7 @@ html, body {
 .chat-container {
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   background: var(--bg-card);
   display: flex;
   flex-direction: column;
@@ -273,7 +275,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-height: 80px;
+  min-height: 60px;
 }
 
 .chat-timeline::-webkit-scrollbar {
@@ -443,7 +445,7 @@ html, body {
 
 .chat-input-area {
   padding: 4px 6px;
-  background: rgba(10, 12, 20, 0.8);
+  background: rgba(10, 12, 20, 0.85);
   border-top: 1px solid var(--border-color);
   flex-shrink: 0;
 }
@@ -669,4 +671,16 @@ html, body {
   padding: 4px 8px;
   font-size: 10.5px;
   cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .chat-container {
+    height: 100dvh;
+  }
+  .quick-stamps {
+    max-height: 80px;
+  }
+  .chat-input-area {
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+  }
 }
