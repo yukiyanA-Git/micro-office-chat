@@ -241,7 +241,6 @@
         Notification.requestPermission();
       }
 
-      // 部屋のデータ通信キーを取得（部屋ID ＋ 合言葉 でキーを作成することで、合言葉が違うと別のデータ空間になる）
       function getRoomFirebaseKey(room) {
         if (!room) return 'general_1234';
         const passcodeStr = (room.passcode || 'none').trim();
@@ -406,6 +405,7 @@
 
           activeFirebaseListenerKey = roomKey;
 
+          // 最新50件のみを取得して画面表示
           db.ref(`rooms/${roomKey}/messages`).limitToLast(50).on('value', (snapshot) => {
             const data = snapshot.val();
             const newMsgs = data ? Object.values(data) : [];
@@ -427,10 +427,20 @@
             renderMessages(currentMessages);
           });
 
+          // メンバー数監視＆最後の1人が切断された時にメッセージを自動消去する設定
           db.ref(`rooms/${roomKey}/members`).on('value', (snapshot) => {
             const data = snapshot.val();
             activeMembers = data || {};
             renderMembers();
+
+            // パターンA: 自分が最後の1人の場合、自分が離脱（onDisconnect）した瞬間にメッセージを自動消去
+            const memberIds = Object.keys(activeMembers);
+            if (memberIds.length <= 1) {
+              db.ref(`rooms/${roomKey}/messages`).onDisconnect().remove();
+              db.ref(`rooms/${roomKey}/members`).onDisconnect().remove();
+            } else {
+              db.ref(`rooms/${roomKey}/messages`).onDisconnect().cancel();
+            }
           });
         }
       }

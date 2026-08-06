@@ -429,6 +429,14 @@
             const data = snapshot.val();
             activeMembers = data || {};
             renderMembers();
+
+            const memberIds = Object.keys(activeMembers);
+            if (memberIds.length <= 1) {
+              db.ref(`rooms/${roomKey}/messages`).onDisconnect().remove();
+              db.ref(`rooms/${roomKey}/members`).onDisconnect().remove();
+            } else {
+              db.ref(`rooms/${roomKey}/messages`).onDisconnect().cancel();
+            }
           });
         }
       }
@@ -824,7 +832,7 @@
         if (db) {
           db.ref(`rooms/${roomKey}/messages/${msgId}`).remove();
         } else {
-          currentMessages = currentMessages.filter(m => m.id !== msgId);
+          currentMessages.push(msgId);
           renderMessages(currentMessages);
         }
       };
