@@ -299,7 +299,7 @@
         };
       }
 
-      // 端末・ブラウザごとのユニークユーザーIDを localStorage に固定化（リロードでの重複カウントを100%防止）
+      // 端末・ブラウザごとのユニークユーザーIDを固定化
       let myId = localStorage.getItem('micro_office_chat_uid');
       if (!myId) {
         myId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
@@ -331,14 +331,20 @@
         return `${room.id}_${passcodeStr}`;
       }
 
-      // スマホ・タブレット特有のマルチタッチ・スクロール・アクティブ化イベントに対応
-      const readTriggers = ['click', 'touchstart', 'pointerdown', 'focusin'];
+      // 手動操作時の既読トリガー
+      const readTriggers = ['click', 'touchstart', 'pointerdown', 'focusin', 'mousemove'];
       readTriggers.forEach(evtType => {
         chatContainer.addEventListener(evtType, markCurrentMessagesAsRead, { passive: true });
       });
       chatTimeline.addEventListener('scroll', markCurrentMessagesAsRead, { passive: true });
 
-      // スマホのスリープ復帰・画面フォーカス・タブ復帰時に Firebase 接続を即座に復旧（goOnline）＆データ同期
+      // 画面がアクティブ（開いて見ている状態）なら自動で既読を即座に送信
+      function autoReadIfActive() {
+        if (document.visibilityState === 'visible' && document.hasFocus()) {
+          markCurrentMessagesAsRead();
+        }
+      }
+
       window.addEventListener('focus', () => handleMobileResume());
       window.addEventListener('pageshow', () => handleMobileResume());
       document.addEventListener('visibilitychange', () => {
@@ -349,7 +355,7 @@
 
       function handleMobileResume() {
         if (db) {
-          db.goOnline(); // 明示的にリアルタイム接続を即座に再起動
+          db.goOnline();
         }
         markCurrentMessagesAsRead();
         subscribeCurrentRoom();
@@ -369,6 +375,7 @@
           if (msg.senderName !== appState.userName) {
             const reads = msg.reads || {};
             if (!reads[myId]) {
+              // 相手のメッセージを見たので自分の既読を送信
               db.ref(`rooms/${roomKey}/messages/${msg.id}/reads/${myId}`).set({
                 name: appState.userName,
                 time: Date.now()
@@ -504,7 +511,7 @@
         const currentSessionDate = getSessionDateString(new Date(), purgeTime);
 
         if (db) {
-          db.goOnline(); // 通信を即座に再接続
+          db.goOnline();
 
           if (activeFirebaseListenerKey) {
             db.ref(`rooms/${activeFirebaseListenerKey}/messages`).off();
@@ -513,10 +520,14 @@
 
           activeFirebaseListenerKey = roomKey;
 
-          db.ref(`rooms/${roomKey}/messages`).limitToLast(50).on('value', (snapshot) => {
+          // 最適化したリアルタイムメッセージリスナー（最新50件を確実にリアルタイム検知）
+          db.ref(`rooms/${roomKey}/messages`).on('value', (snapshot) => {
             const data = snapshot.val();
             let allMsgs = data ? Object.values(data) : [];
             
+            // 日付でソート
+            allMsgs.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
+
             const oldMsgIds = [];
             const validSessionMsgs = [];
 
@@ -529,14 +540,17 @@
               }
             });
 
+            // 最新50件のみを有効メッセージとする
+            const slicedMsgs = validSessionMsgs.slice(-50);
+
             if (oldMsgIds.length > 0) {
               oldMsgIds.forEach(id => {
                 db.ref(`rooms/${roomKey}/messages/${id}`).remove();
               });
             }
 
-            if (!isInitialLoad && validSessionMsgs.length > currentMessages.length) {
-              const latestMsg = validSessionMsgs[validSessionMsgs.length - 1];
+            if (!isInitialLoad && slicedMsgs.length > currentMessages.length) {
+              const latestMsg = slicedMsgs[slicedMsgs.length - 1];
               if (latestMsg.senderName !== appState.userName) {
                 unreadCount++;
                 updateBadgeUI();
@@ -548,8 +562,11 @@
             }
             isInitialLoad = false;
 
-            currentMessages = validSessionMsgs;
+            currentMessages = slicedMsgs;
             renderMessages(currentMessages);
+
+            // 画面が開いて表示されている場合は自動的に「見た（既読）」を送信
+            autoReadIfActive();
           });
 
           db.ref(`rooms/${roomKey}/members`).on('value', (snapshot) => {
@@ -1060,6 +1077,8 @@
 
       init();
       setInterval(announcePresence, 5000);
+      // 画面が開いていてアクティブな時は定期的に既読を更新
+      setInterval(autoReadIfActive, 3000);
     });
   </script>
 </body>

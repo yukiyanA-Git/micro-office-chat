@@ -329,11 +329,17 @@
         return `${room.id}_${passcodeStr}`;
       }
 
-      const readTriggers = ['click', 'touchstart', 'pointerdown', 'focusin'];
+      const readTriggers = ['click', 'touchstart', 'pointerdown', 'focusin', 'mousemove'];
       readTriggers.forEach(evtType => {
         chatContainer.addEventListener(evtType, markCurrentMessagesAsRead, { passive: true });
       });
       chatTimeline.addEventListener('scroll', markCurrentMessagesAsRead, { passive: true });
+
+      function autoReadIfActive() {
+        if (document.visibilityState === 'visible' && document.hasFocus()) {
+          markCurrentMessagesAsRead();
+        }
+      }
 
       window.addEventListener('focus', () => handleMobileResume());
       window.addEventListener('pageshow', () => handleMobileResume());
@@ -509,10 +515,12 @@
 
           activeFirebaseListenerKey = roomKey;
 
-          db.ref(`rooms/${roomKey}/messages`).limitToLast(50).on('value', (snapshot) => {
+          db.ref(`rooms/${roomKey}/messages`).on('value', (snapshot) => {
             const data = snapshot.val();
             let allMsgs = data ? Object.values(data) : [];
             
+            allMsgs.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
+
             const oldMsgIds = [];
             const validSessionMsgs = [];
 
@@ -525,14 +533,16 @@
               }
             });
 
+            const slicedMsgs = validSessionMsgs.slice(-50);
+
             if (oldMsgIds.length > 0) {
               oldMsgIds.forEach(id => {
                 db.ref(`rooms/${roomKey}/messages/${id}`).remove();
               });
             }
 
-            if (!isInitialLoad && validSessionMsgs.length > currentMessages.length) {
-              const latestMsg = validSessionMsgs[validSessionMsgs.length - 1];
+            if (!isInitialLoad && slicedMsgs.length > currentMessages.length) {
+              const latestMsg = slicedMsgs[slicedMsgs.length - 1];
               if (latestMsg.senderName !== appState.userName) {
                 unreadCount++;
                 updateBadgeUI();
@@ -544,8 +554,10 @@
             }
             isInitialLoad = false;
 
-            currentMessages = validSessionMsgs;
+            currentMessages = slicedMsgs;
             renderMessages(currentMessages);
+
+            autoReadIfActive();
           });
 
           db.ref(`rooms/${roomKey}/members`).on('value', (snapshot) => {
@@ -1055,6 +1067,7 @@
 
       init();
       setInterval(announcePresence, 5000);
+      setInterval(autoReadIfActive, 3000);
     });
   </script>
 </body>
