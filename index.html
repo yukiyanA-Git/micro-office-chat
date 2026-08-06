@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Micro Office Chat</title>
+  <title>オフィスチャット</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +22,7 @@
     <!-- ウルトラコンパクトヘッダー -->
     <header class="app-header" id="dragHeader">
       <div class="header-title">
-        <span class="app-icon" id="roomThemeIcon">⚡</span>
+        <span class="app-icon" id="roomThemeIcon">💬</span>
         <span class="app-name" id="currentRoomTitle">オフィスチャット</span>
       </div>
       <div class="header-actions">
@@ -149,7 +151,6 @@
   </div>
 
   <script>
-    // Firebase設定
     const firebaseConfig = {
       apiKey: "AIzaSyDTcSTgVeVYix7oJiPVfNXqH3QtNzuduuM",
       authDomain: "micro-chat-c25bb.firebaseapp.com",
@@ -208,7 +209,6 @@
       let selectedColorTheme = 'indigo';
       let isSoundEnabled = true;
 
-      // サンプル名・サンプル部屋を除去したクリーンな初期状態
       let appState = JSON.parse(localStorage.getItem('micro_office_chat_state')) || {
         userName: '',
         userStatus: '🟢 在席',
@@ -230,7 +230,6 @@
       }
 
       function init() {
-        // 名前が未入力の場合は初回に設定モーダルを開く
         if (!appState.userName) {
           setTimeout(() => openConfigModal(), 300);
         }
