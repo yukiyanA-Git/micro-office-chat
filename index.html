@@ -212,7 +212,6 @@
       let selectedColorTheme = 'indigo';
       let isSoundEnabled = true;
 
-      // 古いキャッシュ「山田」をクリアするリセットチェック
       let appState = JSON.parse(localStorage.getItem('micro_office_chat_state'));
       if (appState && appState.userName === '山田') {
         appState.userName = '';
@@ -260,7 +259,6 @@
         localStorage.setItem('micro_office_chat_state', JSON.stringify(appState));
       }
 
-      // 名前・設定のリセットボタン
       resetStateBtn.addEventListener('click', () => {
         if (confirm('保存された名前や部屋設定を初期リセットしますか？')) {
           localStorage.removeItem('micro_office_chat_state');
@@ -756,22 +754,7 @@
         return (str || '').replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
       }
 
-      let isDragging = false, offsetX, offsetY;
-      const dragHeader = document.getElementById('dragHeader');
-      dragHeader.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.header-actions')) return;
-        isDragging = true;
-        offsetX = e.clientX - chatContainer.getBoundingClientRect().left;
-        offsetY = e.clientY - chatContainer.getBoundingClientRect().top;
-      });
-      document.addEventListener('mousemove', (e) => {
-        if (isDragging) {
-          chatContainer.style.position = 'fixed';
-          chatContainer.style.left = `${e.clientX - offsetX}px`;
-          chatContainer.style.top = `${e.clientY - offsetY}px`;
-        }
-      });
-      document.addEventListener('mouseup', () => isDragging = false);
+      // 単体ドラッグ移動処理は固定化のため削除
 
       init();
       setInterval(announcePresence, 5000);

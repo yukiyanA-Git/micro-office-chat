@@ -30,11 +30,11 @@ html, body {
   height: 100%;
   background-color: var(--bg-primary);
   color: var(--text-main);
-  font-size: 11px; /* 高密度・超軽量文字サイズ */
+  font-size: 11px;
   overflow: hidden;
 }
 
-/* メインチャットコンテナ（限界突破ウルトラコンパクトフィット） */
+/* メインチャットコンテナ（ウィンドウ枠に完全に密着・固定） */
 .chat-container {
   width: 100vw;
   height: 100vh;
@@ -51,7 +51,7 @@ html, body {
   box-shadow: 0 0 15px var(--accent-light);
 }
 
-/* ヘッダー (コンパクト化) */
+/* ヘッダー (カーソルmoveを消してアプリ枠と一体固定) */
 .app-header {
   background: rgba(15, 18, 28, 0.85);
   padding: 5px 8px;
@@ -60,7 +60,6 @@ html, body {
   align-items: center;
   border-bottom: 1px solid var(--border-color);
   border-top: 2.5px solid var(--accent-color);
-  cursor: move;
   transition: border-color 0.2s;
   flex-shrink: 0;
 }
@@ -105,7 +104,6 @@ html, body {
   background: var(--accent-light);
 }
 
-/* 部屋切り替えバー */
 .group-select-bar {
   display: flex;
   align-items: center;
@@ -163,7 +161,6 @@ html, body {
   color: #fff;
 }
 
-/* メンバーバー (アバター一覧) */
 .members-bar {
   padding: 4px 8px;
   background: rgba(18, 21, 30, 0.4);
@@ -187,7 +184,6 @@ html, body {
   gap: 4px;
 }
 
-/* 1文字アバターアイコン */
 .avatar-badge {
   width: 20px;
   height: 20px;
@@ -217,7 +213,6 @@ html, body {
   border-radius: var(--radius-full);
 }
 
-/* ツールバー (クリア / コピー / ステータス) */
 .toolbar {
   padding: 4px 8px;
   display: flex;
@@ -273,7 +268,6 @@ html, body {
   border-color: var(--danger-color);
 }
 
-/* タイムライン */
 .chat-timeline {
   flex: 1;
   padding: 6px 8px;
@@ -301,7 +295,6 @@ html, body {
   line-height: 1.4;
 }
 
-/* メッセージアイテム */
 .msg-item {
   display: flex;
   gap: 5px;
@@ -398,7 +391,6 @@ html, body {
   color: var(--danger-color);
 }
 
-/* クイック声掛けスタンプエリア (極小3列可変グリッド) */
 .quick-stamps {
   padding: 4px 6px;
   background: rgba(15, 18, 28, 0.5);
@@ -438,7 +430,6 @@ html, body {
   transform: translateY(0);
 }
 
-/* メッセージ入力エリア */
 .chat-input-area {
   padding: 4px 6px;
   background: rgba(10, 12, 20, 0.8);
