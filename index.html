@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
@@ -325,8 +325,27 @@
         return `${room.id}_${passcodeStr}`;
       }
 
-      chatContainer.addEventListener('click', markCurrentMessagesAsRead);
-      chatContainer.addEventListener('focusin', markCurrentMessagesAsRead);
+      // スマホ・タブレット特有のマルチタッチ・スクロール・アクティブ化イベントに対応
+      const readTriggers = ['click', 'touchstart', 'pointerdown', 'focusin'];
+      readTriggers.forEach(evtType => {
+        chatContainer.addEventListener(evtType, markCurrentMessagesAsRead, { passive: true });
+      });
+      chatTimeline.addEventListener('scroll', markCurrentMessagesAsRead, { passive: true });
+
+      // スマホのスリープ復帰・画面フォーカス・タブ復帰時に通信再同期＆既読更新
+      window.addEventListener('focus', () => handleMobileResume());
+      window.addEventListener('pageshow', () => handleMobileResume());
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          handleMobileResume();
+        }
+      });
+
+      function handleMobileResume() {
+        markCurrentMessagesAsRead();
+        subscribeCurrentRoom();
+        announcePresence();
+      }
 
       function markCurrentMessagesAsRead() {
         unreadCount = 0;
@@ -375,6 +394,7 @@
         subscribeCurrentRoom();
         announcePresence();
         bindStampButtons();
+        markCurrentMessagesAsRead();
       }
 
       function saveState() {
