@@ -122,7 +122,7 @@
       </div>
       <div class="form-group">
         <label for="newPasscodeInput">合言葉 (パスコード):</label>
-        <input type="password" id="newPasscodeInput" placeholder="知っている人だけ参加可能">
+        <input type="text" id="newPasscodeInput" placeholder="知っている人だけ参加可能" value="1234">
       </div>
 
       <div class="form-group">
@@ -141,7 +141,7 @@
 
       <hr>
 
-      <h4>登録済みの部屋一覧</h4>
+      <h4>📋 参加中の部屋一覧（ID・合言葉確認）</h4>
       <div id="savedRoomsList" class="saved-rooms-list"></div>
 
       <div class="modal-actions" style="justify-content: space-between;">
@@ -224,7 +224,7 @@
           userStatus: '🟢 在席',
           activeRoomId: 'general',
           rooms: [
-            { id: 'general', name: 'メインルーム', passcode: '', color: 'indigo' }
+            { id: 'general', name: 'メインルーム', passcode: '1234', color: 'indigo' }
           ],
           isPinned: false
         };
@@ -540,13 +540,27 @@
         appState.rooms.forEach(r => {
           const item = document.createElement('div');
           item.className = 'saved-room-item';
+          const passcodeStr = r.passcode ? r.passcode : 'なし';
           item.innerHTML = `
-            <span>🏢 <strong>${escapeHTML(r.name)}</strong> (ID: ${escapeHTML(r.id)})</span>
-            ${appState.rooms.length > 1 ? `<button onclick="deleteRoom('${r.id}')" class="remove-room-btn">削除</button>` : ''}
+            <div style="display:flex; flex-direction:column; gap:1px; min-width:0; flex:1;">
+              <span>🏢 <strong>${escapeHTML(r.name)}</strong></span>
+              <span style="font-size:8.5px; color:#94a3b8;">ID: <code>${escapeHTML(r.id)}</code> | 合言葉: <code>${escapeHTML(passcodeStr)}</code></span>
+            </div>
+            <div style="display:flex; gap:4px; align-items:center;">
+              <button onclick="copyRoomInfo('${escapeHTML(r.id)}', '${escapeHTML(passcodeStr)}')" class="small-btn" title="招待用情報をコピー">📋 共有</button>
+              ${appState.rooms.length > 1 ? `<button onclick="deleteRoom('${r.id}')" class="remove-room-btn">削除</button>` : ''}
+            </div>
           `;
           savedRoomsList.appendChild(item);
         });
       }
+
+      window.copyRoomInfo = function(roomId, passcode) {
+        const text = `【オフィスチャット部屋参加情報】\n部屋ID: ${roomId}\n合言葉: ${passcode}`;
+        navigator.clipboard.writeText(text).then(() => {
+          alert('部屋IDと合言葉をコピーしました！\n新しいメンバーに共有してください。');
+        });
+      };
 
       window.deleteRoom = function(roomId) {
         if (confirm('この部屋リストから削除しますか？')) {
