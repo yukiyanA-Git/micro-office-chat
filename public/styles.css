@@ -368,10 +368,23 @@ html, body {
   font-size: 11px;
 }
 
+.msg-footer-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 3px;
+}
+
+.msg-read-status {
+  font-size: 8.5px;
+  color: var(--success-color);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .msg-delete-btn {
-  position: absolute;
-  top: 1px;
-  right: 3px;
   background: transparent;
   border: none;
   color: var(--text-muted);
