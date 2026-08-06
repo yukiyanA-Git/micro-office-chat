@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>オフィスチャット</title>
+  <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
@@ -23,7 +23,7 @@
     <header class="app-header" id="dragHeader">
       <div class="header-title">
         <span class="app-icon" id="roomThemeIcon">💬</span>
-        <span class="app-name" id="currentRoomTitle">オフィスチャット</span>
+        <span class="app-name" id="currentRoomTitle">Desk Chat</span>
       </div>
       <div class="header-actions">
         <button id="soundToggleBtn" class="icon-btn active" title="通知音 (ON/OFF)">🔊</button>
@@ -162,7 +162,7 @@
       <hr>
 
       <!-- 新しい部屋を追加するアコーディオン・折りたたみ/追加エリア -->
-      <details>
+      <details id="newRoomDetailsArea">
         <summary style="cursor:pointer; font-weight:700; font-size:10.5px; color:var(--accent-color); margin: 4px 0;">➕ 新しい部屋を追加・参加する</summary>
         <div style="margin-top:6px; padding: 6px; background: rgba(0,0,0,0.2); border-radius: 4px;">
           <div class="form-group">
@@ -175,7 +175,7 @@
           </div>
           <div class="form-group">
             <label for="newPasscodeInput">合言葉 (パスコード):</label>
-            <input type="text" id="newPasscodeInput" placeholder="例: 1234" value="1234">
+            <input type="text" id="newPasscodeInput" placeholder="例: 1234">
           </div>
           <div class="form-group">
             <label for="newPurgeTimeSelect">⏰ 自動ログクリア時刻:</label>
@@ -259,6 +259,7 @@
       const editColorPickerOptions = document.getElementById('editColorPickerOptions');
       const saveCurrentRoomConfigBtn = document.getElementById('saveCurrentRoomConfigBtn');
 
+      const newRoomDetailsArea = document.getElementById('newRoomDetailsArea');
       const newRoomNameInput = document.getElementById('newRoomNameInput');
       const newRoomIdInput = document.getElementById('newRoomIdInput');
       const newPasscodeInput = document.getElementById('newPasscodeInput');
@@ -344,7 +345,7 @@
 
       function updateBadgeUI() {
         const curRoom = getCurrentRoom();
-        const baseTitle = curRoom ? curRoom.name : 'オフィスチャット';
+        const baseTitle = curRoom ? curRoom.name : 'Desk Chat';
         if (unreadCount > 0) {
           document.title = `(${unreadCount}) 💬 ${baseTitle}`;
           if ('setAppBadge' in navigator) {
@@ -582,13 +583,21 @@
         announcePresence();
       });
 
-      addRoomBtn.addEventListener('click', () => openConfigModal());
+      addRoomBtn.addEventListener('click', () => {
+        openConfigModal();
+        if (newRoomDetailsArea) newRoomDetailsArea.open = true;
+      });
+
       configBtn.addEventListener('click', () => openConfigModal());
 
       function openConfigModal() {
         userNameInput.value = appState.userName;
-        
-        // 現在開いている部屋の設定情報をフォームにセット
+
+        // 新規部屋追加フォームの入力欄を毎開時に綺麗クリア
+        newRoomNameInput.value = '';
+        newRoomIdInput.value = '';
+        newPasscodeInput.value = '';
+
         const curRoom = getCurrentRoom();
         if (curRoom) {
           editRoomSectionTitle.textContent = `✏️ 現在の部屋「${curRoom.name}」の設定変更`;
@@ -598,7 +607,6 @@
           editPurgeTimeSelect.value = curRoom.purgeTime || '00:00';
           selectedEditColorTheme = curRoom.color || 'indigo';
 
-          // カラー選択の見た目を更新
           editColorPickerOptions.querySelectorAll('.color-btn').forEach(btn => {
             if (btn.dataset.color === selectedEditColorTheme) {
               btn.classList.add('active');
@@ -620,7 +628,6 @@
         }
       });
 
-      // 現在の部屋設定を保存・更新
       saveCurrentRoomConfigBtn.addEventListener('click', () => {
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
@@ -685,6 +692,7 @@
 
         newRoomNameInput.value = '';
         newRoomIdInput.value = '';
+        newPasscodeInput.value = '';
         configModal.style.display = 'none';
 
         subscribeCurrentRoom();
@@ -713,7 +721,7 @@
       }
 
       window.copyRoomInfo = function(roomId, passcode) {
-        const text = `【オフィスチャット部屋参加情報】\n部屋ID: ${roomId}\n合言葉: ${passcode}`;
+        const text = `【Desk Chat 部屋参加情報】\n部屋ID: ${roomId}\n合言葉: ${passcode}`;
         navigator.clipboard.writeText(text).then(() => {
           alert('部屋IDと合言葉をコピーしました！\n新しいメンバーに共有してください。');
         });
