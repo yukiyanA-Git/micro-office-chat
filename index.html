@@ -99,7 +99,7 @@
 
   </div>
 
-  <!-- 設定 ＆ 部屋追加・管理モーダル -->
+  <!-- 設定 ＆ 部屋追加・編集モーダル -->
   <div class="modal-overlay" id="configModal" style="display: none;">
     <div class="modal-card">
       <h3>⚙️ 設定 ＆ 部屋（グループ）の管理</h3>
@@ -111,24 +111,25 @@
 
       <hr>
 
-      <h4>➕ 新しい部屋の追加 ＆ リセット時刻設定</h4>
+      <!-- 現在開いている部屋の編集・確認セクション -->
+      <h4 id="editRoomSectionTitle">✏️ 現在の部屋設定の変更</h4>
       <div class="form-group">
-        <label for="newRoomNameInput">部屋名 (例: 打ち合わせ用, プロジェクトA):</label>
-        <input type="text" id="newRoomNameInput" placeholder="部屋の名前">
+        <label for="editRoomNameInput">部屋名:</label>
+        <input type="text" id="editRoomNameInput" placeholder="部屋の名前">
       </div>
       <div class="form-group">
-        <label for="newRoomIdInput">部屋ID (英数字・共通ID):</label>
-        <input type="text" id="newRoomIdInput" placeholder="例: room-01">
+        <label for="editRoomIdInput">部屋ID (閲覧のみ):</label>
+        <input type="text" id="editRoomIdInput" disabled style="opacity:0.7; cursor:not-allowed;">
       </div>
       <div class="form-group">
-        <label for="newPasscodeInput">合言葉 (パスコード):</label>
-        <input type="text" id="newPasscodeInput" placeholder="合言葉（例: 1234）" value="1234">
+        <label for="editPasscodeInput">合言葉 (パスコード):</label>
+        <input type="text" id="editPasscodeInput" placeholder="合言葉">
       </div>
 
       <div class="form-group">
-        <label for="newPurgeTimeSelect">⏰ 毎日の自動ログクリア時刻:</label>
-        <select id="newPurgeTimeSelect">
-          <option value="00:00" selected>00:00 (深夜0時・デフォルト)</option>
+        <label for="editPurgeTimeSelect">⏰ 毎日の自動ログクリア時刻:</label>
+        <select id="editPurgeTimeSelect">
+          <option value="00:00">00:00 (深夜0時・デフォルト)</option>
           <option value="01:00">01:00 (深夜1時)</option>
           <option value="02:00">02:00 (深夜2時)</option>
           <option value="03:00">03:00 (深夜3時)</option>
@@ -142,13 +143,12 @@
           <option value="18:00">18:00 (夕方6時)</option>
           <option value="21:00">21:00 (夜9時)</option>
         </select>
-        <small>※指定した時刻を過ぎると前日のログが自動リセットされます。</small>
       </div>
 
       <div class="form-group">
-        <label>🎨 部屋のページカラー (テーマ色):</label>
-        <div class="color-picker-options" id="colorPickerOptions">
-          <button type="button" class="color-btn active" data-color="indigo" style="background: #6366f1;" title="インディゴ"></button>
+        <label>🎨 My テーマカラー (個人用カラー):</label>
+        <div class="color-picker-options" id="editColorPickerOptions">
+          <button type="button" class="color-btn" data-color="indigo" style="background: #6366f1;" title="インディゴ"></button>
           <button type="button" class="color-btn" data-color="emerald" style="background: #10b981;" title="エメラルドグリーン"></button>
           <button type="button" class="color-btn" data-color="purple" style="background: #8b5cf6;" title="パープル"></button>
           <button type="button" class="color-btn" data-color="rose" style="background: #f43f5e;" title="ローズレッド"></button>
@@ -157,11 +157,41 @@
         </div>
       </div>
 
-      <button id="addNewRoomConfirmBtn" class="primary-btn" style="width: 100%; margin-top: 6px;">部屋を追加・移動</button>
+      <button id="saveCurrentRoomConfigBtn" class="primary-btn" style="width: 100%; margin-top: 4px; margin-bottom: 8px;">💾 現在の部屋設定を更新</button>
 
       <hr>
 
-      <h4>📋 参加中の部屋一覧（ID・合言葉・リセット時刻）</h4>
+      <!-- 新しい部屋を追加するアコーディオン・折りたたみ/追加エリア -->
+      <details>
+        <summary style="cursor:pointer; font-weight:700; font-size:10.5px; color:var(--accent-color); margin: 4px 0;">➕ 新しい部屋を追加・参加する</summary>
+        <div style="margin-top:6px; padding: 6px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+          <div class="form-group">
+            <label for="newRoomNameInput">部屋名:</label>
+            <input type="text" id="newRoomNameInput" placeholder="例: プロジェクトB">
+          </div>
+          <div class="form-group">
+            <label for="newRoomIdInput">部屋ID (英数字):</label>
+            <input type="text" id="newRoomIdInput" placeholder="例: room-02">
+          </div>
+          <div class="form-group">
+            <label for="newPasscodeInput">合言葉 (パスコード):</label>
+            <input type="text" id="newPasscodeInput" placeholder="例: 1234" value="1234">
+          </div>
+          <div class="form-group">
+            <label for="newPurgeTimeSelect">⏰ 自動ログクリア時刻:</label>
+            <select id="newPurgeTimeSelect">
+              <option value="00:00" selected>00:00 (深夜0時)</option>
+              <option value="05:00">05:00 (早朝5時)</option>
+              <option value="09:00">09:00 (朝9時)</option>
+            </select>
+          </div>
+          <button id="addNewRoomConfirmBtn" class="primary-btn" style="width: 100%; margin-top: 4px;">＋ 部屋を追加して移動</button>
+        </div>
+      </details>
+
+      <hr>
+
+      <h4>📋 参加中の部屋一覧（ID・合言葉・共有）</h4>
       <div id="savedRoomsList" class="saved-rooms-list"></div>
 
       <div class="modal-actions" style="justify-content: space-between;">
@@ -220,17 +250,26 @@
 
       const configModal = document.getElementById('configModal');
       const userNameInput = document.getElementById('userNameInput');
+      
+      const editRoomSectionTitle = document.getElementById('editRoomSectionTitle');
+      const editRoomNameInput = document.getElementById('editRoomNameInput');
+      const editRoomIdInput = document.getElementById('editRoomIdInput');
+      const editPasscodeInput = document.getElementById('editPasscodeInput');
+      const editPurgeTimeSelect = document.getElementById('editPurgeTimeSelect');
+      const editColorPickerOptions = document.getElementById('editColorPickerOptions');
+      const saveCurrentRoomConfigBtn = document.getElementById('saveCurrentRoomConfigBtn');
+
       const newRoomNameInput = document.getElementById('newRoomNameInput');
       const newRoomIdInput = document.getElementById('newRoomIdInput');
       const newPasscodeInput = document.getElementById('newPasscodeInput');
       const newPurgeTimeSelect = document.getElementById('newPurgeTimeSelect');
-      const colorPickerOptions = document.getElementById('colorPickerOptions');
       const addNewRoomConfirmBtn = document.getElementById('addNewRoomConfirmBtn');
+      
       const savedRoomsList = document.getElementById('savedRoomsList');
       const closeModalBtn = document.getElementById('closeModalBtn');
       const resetStateBtn = document.getElementById('resetStateBtn');
 
-      let selectedColorTheme = 'indigo';
+      let selectedEditColorTheme = 'indigo';
       let isSoundEnabled = true;
       let unreadCount = 0;
 
@@ -262,12 +301,10 @@
         Notification.requestPermission();
       }
 
-      // 指定された基準時刻 (purgeTime, 例: "05:00") に基づくセッション識別日を取得
       function getSessionDateString(dateObj, purgeTimeStr) {
         const d = new Date(dateObj || Date.now());
         const [targetHour, targetMin] = (purgeTimeStr || '00:00').split(':').map(Number);
         
-        // もし現在時刻が基準リセット時刻より前なら、前日セッションとする
         if (d.getHours() < targetHour || (d.getHours() === targetHour && d.getMinutes() < targetMin)) {
           d.setDate(d.getDate() - 1);
         }
@@ -456,7 +493,6 @@
               }
             });
 
-            // 基準リセット時刻を過ぎた古いメッセージを自動削除
             if (oldMsgIds.length > 0) {
               oldMsgIds.forEach(id => {
                 db.ref(`rooms/${roomKey}/messages/${id}`).remove();
@@ -551,16 +587,67 @@
 
       function openConfigModal() {
         userNameInput.value = appState.userName;
+        
+        // 現在開いている部屋の設定情報をフォームにセット
+        const curRoom = getCurrentRoom();
+        if (curRoom) {
+          editRoomSectionTitle.textContent = `✏️ 現在の部屋「${curRoom.name}」の設定変更`;
+          editRoomNameInput.value = curRoom.name;
+          editRoomIdInput.value = curRoom.id;
+          editPasscodeInput.value = curRoom.passcode || '';
+          editPurgeTimeSelect.value = curRoom.purgeTime || '00:00';
+          selectedEditColorTheme = curRoom.color || 'indigo';
+
+          // カラー選択の見た目を更新
+          editColorPickerOptions.querySelectorAll('.color-btn').forEach(btn => {
+            if (btn.dataset.color === selectedEditColorTheme) {
+              btn.classList.add('active');
+            } else {
+              btn.classList.remove('active');
+            }
+          });
+        }
+
         renderSavedRoomsList();
         configModal.style.display = 'flex';
       }
 
-      colorPickerOptions.addEventListener('click', (e) => {
+      editColorPickerOptions.addEventListener('click', (e) => {
         if (e.target.classList.contains('color-btn')) {
-          colorPickerOptions.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
+          editColorPickerOptions.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
           e.target.classList.add('active');
-          selectedColorTheme = e.target.dataset.color;
+          selectedEditColorTheme = e.target.dataset.color;
         }
+      });
+
+      // 現在の部屋設定を保存・更新
+      saveCurrentRoomConfigBtn.addEventListener('click', () => {
+        const curRoom = getCurrentRoom();
+        if (!curRoom) return;
+
+        const newName = editRoomNameInput.value.trim();
+        const newPasscode = editPasscodeInput.value.trim();
+        const newPurgeTime = editPurgeTimeSelect.value;
+
+        if (!newName) {
+          alert('部屋名を入力してください。');
+          return;
+        }
+
+        curRoom.name = newName;
+        curRoom.passcode = newPasscode;
+        curRoom.purgeTime = newPurgeTime;
+        curRoom.color = selectedEditColorTheme;
+
+        appState.userName = userNameInput.value.trim();
+
+        saveState();
+        updateRoomSelectorUI();
+        applyRoomTheme();
+        configModal.style.display = 'none';
+
+        subscribeCurrentRoom();
+        announcePresence();
       });
 
       closeModalBtn.addEventListener('click', () => {
@@ -583,11 +670,11 @@
 
         const existing = appState.rooms.find(r => r.id === id);
         if (!existing) {
-          appState.rooms.push({ id, name, passcode, color: selectedColorTheme, purgeTime });
+          appState.rooms.push({ id, name, passcode, color: selectedEditColorTheme, purgeTime });
         } else {
           existing.name = name;
           existing.passcode = passcode;
-          existing.color = selectedColorTheme;
+          existing.color = selectedEditColorTheme;
           existing.purgeTime = purgeTime;
         }
 
