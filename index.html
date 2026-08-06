@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20260806_5">
+  <link rel="stylesheet" href="styles.css?v=20260806_6">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -27,6 +27,7 @@
       <div class="header-title">
         <span class="app-icon" id="roomThemeIcon">💬</span>
         <span class="app-name" id="currentRoomTitle">Desk Chat</span>
+        <span id="roomKeyTag" style="font-size:8px; opacity:0.6; margin-left:4px; font-weight:normal;"></span>
       </div>
       <div class="header-actions">
         <button id="soundToggleBtn" class="icon-btn active" title="通知音 (ON/OFF)">🔊</button>
@@ -254,6 +255,7 @@
       const roomSelector = document.getElementById('roomSelector');
       const addRoomBtn = document.getElementById('addRoomBtn');
       const currentRoomTitle = document.getElementById('currentRoomTitle');
+      const roomKeyTag = document.getElementById('roomKeyTag');
       const membersList = document.getElementById('membersList');
       const myStatusSelect = document.getElementById('myStatus');
       const copyLogBtn = document.getElementById('copyLogBtn');
@@ -337,12 +339,11 @@
       }
 
       function getRoomFirebaseKey(room) {
-        if (!room) return 'room1';
-        const passcodeStr = (room.passcode || 'none').trim();
+        if (!room) return 'room1_none';
+        const passcodeStr = (room.passcode || 'none').trim() || 'none';
         return `${room.id}_${passcodeStr}`;
       }
 
-      // 明示的タップ・フォーカス時に確実な既読送信
       ['click', 'touchstart', 'focusin'].forEach(evtType => {
         chatContainer.addEventListener(evtType, markCurrentMessagesAsRead, { passive: true });
       });
@@ -363,7 +364,6 @@
         announcePresence();
       }
 
-      // 【確実な既読送信】ガードを撤去し、最新メッセージがある状態なら自分の最終既読時刻を更新
       function markCurrentMessagesAsRead() {
         unreadCount = 0;
         updateBadgeUI();
@@ -478,6 +478,9 @@
         if (!curRoom) return;
 
         currentRoomTitle.textContent = curRoom.name;
+        if (roomKeyTag) {
+          roomKeyTag.textContent = `[ID:${curRoom.id}]`;
+        }
 
         const colorMap = {
           indigo: { accent: '#6366f1', hover: '#4f46e5', light: 'rgba(99, 102, 241, 0.15)' },
@@ -522,7 +525,7 @@
             updateReadBadgesOnly();
           });
 
-          // 2. 【最重要】メッセージ受領を child_added + child_removed に変更（1件ごとのミリ秒リアルタイムプッシュ受信）
+          // 2. メッセージ受領
           currentMessages = [];
           chatTimeline.innerHTML = '<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>';
 
@@ -534,19 +537,16 @@
 
             const msgSessionDate = msg.sessionDate || (msg.timestampMs ? getSessionDateString(new Date(msg.timestampMs), purgeTime) : null);
             
-            // 旧セッションの自動削除
             if (msgSessionDate && msgSessionDate !== currentSessionDate) {
               db.ref(`rooms/${roomKey}/messages/${msg.id}`).remove();
               return;
             }
 
-            // 重複チェック
             if (currentMessages.some(m => m.id === msg.id)) return;
 
             currentMessages.push(msg);
             currentMessages.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
 
-            // 単一メッセージを即座に表示（画面全体をクリアしないため100%高速＆非チカチカ）
             renderSingleMessage(msg);
             scrollToBottom();
 
@@ -566,12 +566,10 @@
             }
           });
 
-          // 初回ロード完了判定
           msgQuery.once('value', () => {
             isInitialLoad = false;
           });
 
-          // 削除時（一括消去・単一削除）
           db.ref(`rooms/${roomKey}/messages`).on('child_removed', (snapshot) => {
             const removedMsg = snapshot.val();
             if (!removedMsg) return;
@@ -584,7 +582,6 @@
             }
           });
 
-          // 3. メンバー監視（名前変更・オンライン・ステータス即時反映）
           db.ref(`rooms/${roomKey}/members`).on('value', (snapshot) => {
             const data = snapshot.val();
             activeMembers = data || {};
@@ -1024,7 +1021,6 @@
         const notice = chatTimeline.querySelector('.timeline-empty-notice');
         if (notice) notice.remove();
 
-        // 既存エレメントがすでにある場合は追加しない
         if (document.getElementById(`msg_${msg.id}`)) return;
 
         const item = document.createElement('div');
@@ -1038,8 +1034,9 @@
           bodyContent = `<div class="msg-text">${escapeHTML(msg.text)}</div>`;
         }
 
-        if (msg.file) {
-          if (msg.file.type.startsWith('image/')) {
+        // 安全なファイル画像チェック（JavaScriptエラー防止）
+        if (msg.file && msg.file.type) {
+          if (typeof msg.file.type === 'string' && msg.file.type.startsWith('image/')) {
             bodyContent += `<div style="margin-top:4px;"><img src="${msg.file.data}" style="max-width:100%; border-radius:4px;" /></div>`;
           } else {
             bodyContent += `<div style="margin-top:4px;"><a href="${msg.file.data}" download="${msg.file.name}" style="color:#818cf8; font-size:11px;">💾 ${escapeHTML(msg.file.name)}</a></div>`;

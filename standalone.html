@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="public/styles.css?v=20260806_5">
+  <link rel="stylesheet" href="public/styles.css?v=20260806_6">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -27,6 +27,7 @@
       <div class="header-title">
         <span class="app-icon" id="roomThemeIcon">💬</span>
         <span class="app-name" id="currentRoomTitle">Desk Chat</span>
+        <span id="roomKeyTag" style="font-size:8px; opacity:0.6; margin-left:4px; font-weight:normal;"></span>
       </div>
       <div class="header-actions">
         <button id="soundToggleBtn" class="icon-btn active" title="通知音 (ON/OFF)">🔊</button>
@@ -253,6 +254,7 @@
       const roomSelector = document.getElementById('roomSelector');
       const addRoomBtn = document.getElementById('addRoomBtn');
       const currentRoomTitle = document.getElementById('currentRoomTitle');
+      const roomKeyTag = document.getElementById('roomKeyTag');
       const membersList = document.getElementById('membersList');
       const myStatusSelect = document.getElementById('myStatus');
       const copyLogBtn = document.getElementById('copyLogBtn');
@@ -336,8 +338,8 @@
       }
 
       function getRoomFirebaseKey(room) {
-        if (!room) return 'room1';
-        const passcodeStr = (room.passcode || 'none').trim();
+        if (!room) return 'room1_none';
+        const passcodeStr = (room.passcode || 'none').trim() || 'none';
         return `${room.id}_${passcodeStr}`;
       }
 
@@ -475,6 +477,9 @@
         if (!curRoom) return;
 
         currentRoomTitle.textContent = curRoom.name;
+        if (roomKeyTag) {
+          roomKeyTag.textContent = `[ID:${curRoom.id}]`;
+        }
 
         const colorMap = {
           indigo: { accent: '#6366f1', hover: '#4f46e5', light: 'rgba(99, 102, 241, 0.15)' },
@@ -1026,8 +1031,8 @@
           bodyContent = `<div class="msg-text">${escapeHTML(msg.text)}</div>`;
         }
 
-        if (msg.file) {
-          if (msg.file.type.startsWith('image/')) {
+        if (msg.file && msg.file.type) {
+          if (typeof msg.file.type === 'string' && msg.file.type.startsWith('image/')) {
             bodyContent += `<div style="margin-top:4px;"><img src="${msg.file.data}" style="max-width:100%; border-radius:4px;" /></div>`;
           } else {
             bodyContent += `<div style="margin-top:4px;"><a href="${msg.file.data}" download="${msg.file.name}" style="color:#818cf8; font-size:11px;">💾 ${escapeHTML(msg.file.name)}</a></div>`;
@@ -1050,7 +1055,7 @@
         let readBadgeHTML = '';
         if (readCount > 0) {
           const names = readUserNames.join(', ');
-          readBadgeHTML = `<div class="msg-read-status" title="既読: ${escapeHTML(names)}">👀 既読 ${readCount}</div>`;
+          readBadgeHTML = `<div class="msg-read-status" title="既読: ${escapeHTML(names)}">👀 既读 ${readCount}</div>`;
         }
 
         item.innerHTML = `
