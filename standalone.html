@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Micro Office Chat (Firebase Cloud Online)</title>
+  <title>Micro Office Chat (Sound & Notification Enhanced)</title>
   <link rel="stylesheet" href="public/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,6 +24,7 @@
         <span class="app-name" id="currentRoomTitle">オフィスチャット</span>
       </div>
       <div class="header-actions">
+        <button id="soundToggleBtn" class="icon-btn active" title="通知音 (ON/OFF)">🔊</button>
         <button id="pinBtn" class="icon-btn" title="最前面にピン留め (ON/OFF)">📌</button>
         <button id="configBtn" class="icon-btn" title="設定・部屋の管理">⚙️</button>
         <button id="popoutBtn" class="icon-btn" title="小窓ポップアップ表示">↗️</button>
@@ -148,7 +149,6 @@
   </div>
 
   <script>
-    // Firebase設定
     const firebaseConfig = {
       apiKey: "AIzaSyDTcSTgVeVYix7oJiPVfNXqH3QtNzuduuM",
       authDomain: "micro-chat-c25bb.firebaseapp.com",
@@ -160,7 +160,6 @@
       databaseURL: "https://micro-chat-c25bb-default-rtdb.firebaseio.com"
     };
 
-    // Firebase 初期化
     let db = null;
     try {
       if (typeof firebase !== 'undefined') {
@@ -175,6 +174,7 @@
       const bc = new BroadcastChannel('micro_office_chat_channel');
 
       const chatContainer = document.getElementById('chatContainer');
+      const soundToggleBtn = document.getElementById('soundToggleBtn');
       const pinBtn = document.getElementById('pinBtn');
       const configBtn = document.getElementById('configBtn');
       const popoutBtn = document.getElementById('popoutBtn');
@@ -205,6 +205,7 @@
       const closeModalBtn = document.getElementById('closeModalBtn');
 
       let selectedColorTheme = 'indigo';
+      let isSoundEnabled = true;
 
       let appState = JSON.parse(localStorage.getItem('micro_office_chat_state')) || {
         userName: '山田',
@@ -222,7 +223,6 @@
       let attachedFile = null;
       let currentMessages = [];
       let activeFirebaseListener = null;
-      let activePresenceListener = null;
 
       if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
@@ -242,6 +242,44 @@
       function saveState() {
         localStorage.setItem('micro_office_chat_state', JSON.stringify(appState));
       }
+
+      function playNotificationSound() {
+        if (!isSoundEnabled) return;
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+          
+          gain.gain.setValueAtTime(0.2, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          
+          osc.start();
+          osc.stop(ctx.currentTime + 0.3);
+        } catch (e) {
+          console.warn("Sound play error:", e);
+        }
+      }
+
+      soundToggleBtn.addEventListener('click', () => {
+        isSoundEnabled = !isSoundEnabled;
+        if (isSoundEnabled) {
+          soundToggleBtn.textContent = '🔊';
+          soundToggleBtn.classList.add('active');
+          soundToggleBtn.title = "通知音: ON";
+          playNotificationSound();
+        } else {
+          soundToggleBtn.textContent = '🔇';
+          soundToggleBtn.classList.remove('active');
+          soundToggleBtn.title = "通知音: OFF";
+        }
+      });
 
       function updateRoomSelectorUI() {
         roomSelector.innerHTML = '';
@@ -279,12 +317,13 @@
         document.documentElement.style.setProperty('--accent-light', theme.light);
       }
 
-      // Firebase / BroadcastChannel リアルタイム同期の講読
+      let isInitialLoad = true;
+
       function subscribeCurrentRoom() {
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
+        isInitialLoad = true;
 
-        // Firebase 連携の場合
         if (db) {
           if (activeFirebaseListener) {
             db.ref(`rooms/${activeFirebaseListener}/messages`).off();
@@ -293,14 +332,21 @@
 
           activeFirebaseListener = curRoom.id;
 
-          // メッセージリアルタイム同期
           db.ref(`rooms/${curRoom.id}/messages`).limitToLast(50).on('value', (snapshot) => {
             const data = snapshot.val();
-            currentMessages = data ? Object.values(data) : [];
+            const newMsgs = data ? Object.values(data) : [];
+            
+            if (!isInitialLoad && newMsgs.length > currentMessages.length) {
+              const latestMsg = newMsgs[newMsgs.length - 1];
+              playNotificationSound();
+              showDesktopNotification(latestMsg);
+            }
+            isInitialLoad = false;
+
+            currentMessages = newMsgs;
             renderMessages(currentMessages);
           });
 
-          // メンバーリアルタイム同期
           db.ref(`rooms/${curRoom.id}/members`).on('value', (snapshot) => {
             const data = snapshot.val();
             activeMembers = data || {};
@@ -332,10 +378,7 @@
         activeMembers[myId] = memberObj;
         renderMembers();
 
-        bc.postMessage({
-          type: 'PRESENCE_PING',
-          member: memberObj
-        });
+        bc.postMessage({ type: 'PRESENCE_PING', member: memberObj });
       }
 
       function applyPinState(isPinned) {
@@ -526,6 +569,7 @@
           currentMessages.push(msgObj);
           renderSingleMessage(msgObj);
           scrollToBottom();
+          playNotificationSound();
         }
 
         bc.postMessage({ type: 'NEW_MSG', msg: msgObj });
@@ -574,6 +618,7 @@
             currentMessages.push(msg);
             renderSingleMessage(msg);
             scrollToBottom();
+            playNotificationSound();
           }
           if (document.hidden || !document.hasFocus()) {
             showDesktopNotification(msg);
@@ -681,24 +726,7 @@
       }
 
       let isDragging = false, offsetX, offsetY;
-      const dragHeader = document.getElementById('dragHeader');
-      dragHeader.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.header-actions')) return;
-        isDragging = true;
-        offsetX = e.clientX - chatContainer.getBoundingClientRect().left;
-        offsetY = e.clientY - chatContainer.getBoundingClientRect().top;
-      });
-      document.addEventListener('mousemove', (e) => {
-        if (isDragging) {
-          chatContainer.style.position = 'fixed';
-          chatContainer.style.left = `${e.clientX - offsetX}px`;
-          chatContainer.style.top = `${e.clientY - offsetY}px`;
-        }
-      });
-      document.addEventListener('mouseup', () => isDragging = false);
-
-      init();
-      setInterval(announcePresence, 5000);
+      const dragHeader = document.append;
     });
   </script>
 </body>
