@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="public/styles.css?v=20260806_2">
+  <link rel="stylesheet" href="public/styles.css?v=20260806_3">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -320,6 +320,7 @@
       let attachedFile = null;
       let currentMessages = [];
       let activeFirebaseListenerKey = null;
+      let myLastReadTimestamp = 0;
 
       if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
@@ -341,17 +342,9 @@
         return `${room.id}_${passcodeStr}`;
       }
 
-      const readTriggers = ['click', 'touchstart', 'pointerdown', 'focusin'];
-      readTriggers.forEach(evtType => {
+      ['click', 'touchstart', 'focusin'].forEach(evtType => {
         chatContainer.addEventListener(evtType, markCurrentMessagesAsRead, { passive: true });
       });
-      chatTimeline.addEventListener('scroll', markCurrentMessagesAsRead, { passive: true });
-
-      function autoReadIfActive() {
-        if (document.visibilityState === 'visible' && document.hasFocus()) {
-          markCurrentMessagesAsRead();
-        }
-      }
 
       window.addEventListener('focus', () => handleMobileResume());
       window.addEventListener('pageshow', () => handleMobileResume());
@@ -366,11 +359,9 @@
           db.goOnline();
         }
         markCurrentMessagesAsRead();
-        subscribeCurrentRoom();
         announcePresence();
       }
 
-      let lastSentReadTime = 0;
       function markCurrentMessagesAsRead() {
         unreadCount = 0;
         updateBadgeUI();
@@ -378,16 +369,18 @@
         const curRoom = getCurrentRoom();
         if (!curRoom || !db || !appState.userName) return;
 
-        const now = Date.now();
-        if (now - lastSentReadTime < 3000) return;
-        lastSentReadTime = now;
+        const latestMsg = currentMessages[currentMessages.length - 1];
+        const latestTime = latestMsg ? (latestMsg.timestampMs || 0) : Date.now();
 
+        if (myLastReadTimestamp >= latestTime) return;
+
+        myLastReadTimestamp = Date.now();
         const roomKey = getRoomFirebaseKey(curRoom);
 
         db.ref(`rooms/${roomKey}/lastRead/${myId}`).set({
           userId: myId,
           userName: appState.userName,
-          readTime: now
+          readTime: myLastReadTimestamp
         });
       }
 
@@ -416,7 +409,6 @@
         subscribeCurrentRoom();
         announcePresence();
         bindStampButtons();
-        markCurrentMessagesAsRead();
       }
 
       function saveState() {
@@ -574,7 +566,9 @@
             currentMessages = slicedMsgs;
             renderMessages(currentMessages);
 
-            autoReadIfActive();
+            if (document.visibilityState === 'visible') {
+              markCurrentMessagesAsRead();
+            }
           });
 
           db.ref(`rooms/${roomKey}/members`).on('value', (snapshot) => {
@@ -1119,8 +1113,6 @@
       }
 
       init();
-      setInterval(announcePresence, 5000);
-      setInterval(autoReadIfActive, 4000);
     });
   </script>
 </body>

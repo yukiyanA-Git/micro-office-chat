@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20260806_2">
+  <link rel="stylesheet" href="styles.css?v=20260806_3">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -213,7 +213,7 @@
   </div>
 
   <script>
-    // 古いキャッシュをクリア
+    // 古い キャッシュ / ServiceWorker の強制消去
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(registrations => {
         for (let registration of registrations) {
@@ -321,6 +321,7 @@
       let attachedFile = null;
       let currentMessages = [];
       let activeFirebaseListenerKey = null;
+      let myLastReadTimestamp = 0;
 
       if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
@@ -342,18 +343,10 @@
         return `${room.id}_${passcodeStr}`;
       }
 
-      // mousemove を完全削除！(チカチカの原因を100%排除)
-      const readTriggers = ['click', 'touchstart', 'pointerdown', 'focusin'];
-      readTriggers.forEach(evtType => {
+      // 明示的な操作時のみ既読を送信（タイマー連打なし）
+      ['click', 'touchstart', 'focusin'].forEach(evtType => {
         chatContainer.addEventListener(evtType, markCurrentMessagesAsRead, { passive: true });
       });
-      chatTimeline.addEventListener('scroll', markCurrentMessagesAsRead, { passive: true });
-
-      function autoReadIfActive() {
-        if (document.visibilityState === 'visible' && document.hasFocus()) {
-          markCurrentMessagesAsRead();
-        }
-      }
 
       window.addEventListener('focus', () => handleMobileResume());
       window.addEventListener('pageshow', () => handleMobileResume());
@@ -368,12 +361,10 @@
           db.goOnline();
         }
         markCurrentMessagesAsRead();
-        subscribeCurrentRoom();
         announcePresence();
       }
 
-      // 既読の連打・高頻度書き込みを抑止するデバウンス（最低3秒に1回）
-      let lastSentReadTime = 0;
+      // 必要時のみ極小の単一既読書き込み（無駄な連打ゼロ）
       function markCurrentMessagesAsRead() {
         unreadCount = 0;
         updateBadgeUI();
@@ -381,16 +372,20 @@
         const curRoom = getCurrentRoom();
         if (!curRoom || !db || !appState.userName) return;
 
-        const now = Date.now();
-        if (now - lastSentReadTime < 3000) return; // 3秒以内は連投しない
-        lastSentReadTime = now;
+        // 最新メッセージのタイムスタンプを取得
+        const latestMsg = currentMessages[currentMessages.length - 1];
+        const latestTime = latestMsg ? (latestMsg.timestampMs || 0) : Date.now();
 
+        // 既に最新のメッセージまで読んでいる場合は何もしない！（無限ループ完全防止）
+        if (myLastReadTimestamp >= latestTime) return;
+
+        myLastReadTimestamp = Date.now();
         const roomKey = getRoomFirebaseKey(curRoom);
 
         db.ref(`rooms/${roomKey}/lastRead/${myId}`).set({
           userId: myId,
           userName: appState.userName,
-          readTime: now
+          readTime: myLastReadTimestamp
         });
       }
 
@@ -419,7 +414,6 @@
         subscribeCurrentRoom();
         announcePresence();
         bindStampButtons();
-        markCurrentMessagesAsRead();
       }
 
       function saveState() {
@@ -530,13 +524,13 @@
 
           activeFirebaseListenerKey = roomKey;
 
-          // 1. 相手の既読更新（レンダリングは差分更新のみ）
+          // 1. 既読リスナー（既読バッジ部分のテキストのみ静かに書き換え）
           db.ref(`rooms/${roomKey}/lastRead`).on('value', (snapshot) => {
             userLastReadTimes = snapshot.val() || {};
             updateReadBadgesOnly();
           });
 
-          // 2. メッセージ受信
+          // 2. メッセージリスナー（変更時のみ安全にレンダリング）
           db.ref(`rooms/${roomKey}/messages`).on('value', (snapshot) => {
             const data = snapshot.val();
             let allMsgs = data ? Object.values(data) : [];
@@ -579,7 +573,9 @@
             currentMessages = slicedMsgs;
             renderMessages(currentMessages);
 
-            autoReadIfActive();
+            if (document.visibilityState === 'visible') {
+              markCurrentMessagesAsRead();
+            }
           });
 
           // 3. メンバー監視
@@ -591,6 +587,7 @@
         }
       }
 
+      // 存在通知は起動時・切り替え時に1回だけ書き込み（タイマー連打禁止）
       function announcePresence() {
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
@@ -991,7 +988,6 @@
         scrollToBottom();
       }
 
-      // 画面全体を再クリアせず、既読バッジ部分だけを静かに更新（画面チラつき100%カット）
       function updateReadBadgesOnly() {
         currentMessages.forEach(msg => {
           const msgElem = document.getElementById(`msg_${msg.id}`);
@@ -1126,8 +1122,6 @@
       }
 
       init();
-      setInterval(announcePresence, 5000);
-      setInterval(autoReadIfActive, 4000);
     });
   </script>
 </body>
