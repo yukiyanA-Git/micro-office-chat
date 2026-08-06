@@ -212,6 +212,7 @@
       let selectedColorTheme = 'indigo';
       let isSoundEnabled = true;
       let unreadCount = 0;
+      let isUserActivelyEngaged = false; // ユーザーがアプリをクリック/操作したかフラグ
 
       let appState = JSON.parse(localStorage.getItem('micro_office_chat_state'));
       if (appState && appState.userName === '山田') {
@@ -241,19 +242,15 @@
         Notification.requestPermission();
       }
 
-      function isWindowFocused() {
-        return !document.hidden && document.hasFocus();
-      }
-
-      // ウィンドウがフォーカス（クリック/復帰）された時
-      window.addEventListener('focus', markCurrentMessagesAsRead);
-      document.addEventListener('visibilitychange', () => {
-        if (isWindowFocused()) {
-          markCurrentMessagesAsRead();
-        }
+      // ユーザーがアプリ画面を「カチッ」とクリック / 入力欄フォーカスした時のみ「既読」にする！
+      chatContainer.addEventListener('click', markCurrentMessagesAsRead);
+      chatContainer.addEventListener('focusin', markCurrentMessagesAsRead);
+      window.addEventListener('focus', () => {
+        // ウィンドウ復帰時もクリック操作待機
       });
 
       function markCurrentMessagesAsRead() {
+        isUserActivelyEngaged = true;
         unreadCount = 0;
         updateBadgeUI();
 
@@ -411,7 +408,8 @@
             if (!isInitialLoad && newMsgs.length > currentMessages.length) {
               const latestMsg = newMsgs[newMsgs.length - 1];
               
-              if (!isWindowFocused()) {
+              // 画面が開いていても、明示的にクリック操作されていない場合は「未読」にする
+              if (latestMsg.senderName !== appState.userName) {
                 unreadCount++;
                 updateBadgeUI();
                 playNotificationSound();
@@ -424,10 +422,6 @@
 
             currentMessages = newMsgs;
             renderMessages(currentMessages);
-
-            if (isWindowFocused()) {
-              markCurrentMessagesAsRead();
-            }
           });
 
           db.ref(`rooms/${curRoom.id}/members`).on('value', (snapshot) => {
@@ -710,7 +704,7 @@
             scrollToBottom();
             playNotificationSound();
           }
-          if (!isWindowFocused()) {
+          if (msg.senderName !== appState.userName) {
             unreadCount++;
             updateBadgeUI();
             showDesktopNotification(msg);
@@ -774,7 +768,6 @@
           }
         }
 
-        // 既読表示の計算（自分以外の既読者数・メンバー名）
         const reads = msg.reads || {};
         const readKeys = Object.keys(reads);
         const readCount = readKeys.length;

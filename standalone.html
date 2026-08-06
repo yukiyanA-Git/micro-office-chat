@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Micro Office Chat</title>
+  <title>オフィスチャット</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="public/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +22,7 @@
     <!-- ウルトラコンパクトヘッダー -->
     <header class="app-header" id="dragHeader">
       <div class="header-title">
-        <span class="app-icon" id="roomThemeIcon">⚡</span>
+        <span class="app-icon" id="roomThemeIcon">💬</span>
         <span class="app-name" id="currentRoomTitle">オフィスチャット</span>
       </div>
       <div class="header-actions">
@@ -142,7 +144,8 @@
       <h4>登録済みの部屋一覧</h4>
       <div id="savedRoomsList" class="saved-rooms-list"></div>
 
-      <div class="modal-actions">
+      <div class="modal-actions" style="justify-content: space-between;">
+        <button id="resetStateBtn" class="danger-btn small-btn" style="padding: 4px 8px;">🗑️ 登録名をリセット</button>
         <button id="closeModalBtn" class="secondary-btn">閉じる</button>
       </div>
     </div>
@@ -203,19 +206,29 @@
       const addNewRoomConfirmBtn = document.getElementById('addNewRoomConfirmBtn');
       const savedRoomsList = document.getElementById('savedRoomsList');
       const closeModalBtn = document.getElementById('closeModalBtn');
+      const resetStateBtn = document.getElementById('resetStateBtn');
 
       let selectedColorTheme = 'indigo';
       let isSoundEnabled = true;
+      let unreadCount = 0;
 
-      let appState = JSON.parse(localStorage.getItem('micro_office_chat_state')) || {
-        userName: '',
-        userStatus: '🟢 在席',
-        activeRoomId: 'general',
-        rooms: [
-          { id: 'general', name: 'メインルーム', passcode: '', color: 'indigo' }
-        ],
-        isPinned: false
-      };
+      let appState = JSON.parse(localStorage.getItem('micro_office_chat_state'));
+      if (appState && appState.userName === '山田') {
+        appState.userName = '';
+        localStorage.setItem('micro_office_chat_state', JSON.stringify(appState));
+      }
+
+      if (!appState) {
+        appState = {
+          userName: '',
+          userStatus: '🟢 在席',
+          activeRoomId: 'general',
+          rooms: [
+            { id: 'general', name: 'メインルーム', passcode: '', color: 'indigo' }
+          ],
+          isPinned: false
+        };
+      }
 
       const myId = 'user_' + Math.random().toString(36).substr(2, 6);
       let activeMembers = {};
@@ -225,6 +238,45 @@
 
       if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
+      }
+
+      chatContainer.addEventListener('click', markCurrentMessagesAsRead);
+      chatContainer.addEventListener('focusin', markCurrentMessagesAsRead);
+
+      function markCurrentMessagesAsRead() {
+        unreadCount = 0;
+        updateBadgeUI();
+
+        const curRoom = getCurrentRoom();
+        if (!curRoom || !db || !appState.userName) return;
+
+        currentMessages.forEach(msg => {
+          if (msg.senderName !== appState.userName) {
+            const reads = msg.reads || {};
+            if (!reads[myId]) {
+              db.ref(`rooms/${curRoom.id}/messages/${msg.id}/reads/${myId}`).set({
+                name: appState.userName,
+                time: Date.now()
+              });
+            }
+          }
+        });
+      }
+
+      function updateBadgeUI() {
+        const curRoom = getCurrentRoom();
+        const baseTitle = curRoom ? curRoom.name : 'オフィスチャット';
+        if (unreadCount > 0) {
+          document.title = `(${unreadCount}) 💬 ${baseTitle}`;
+          if ('setAppBadge' in navigator) {
+            navigator.setAppBadge(unreadCount).catch(() => {});
+          }
+        } else {
+          document.title = `💬 ${baseTitle}`;
+          if ('clearAppBadge' in navigator) {
+            navigator.clearAppBadge().catch(() => {});
+          }
+        }
       }
 
       function init() {
@@ -245,6 +297,13 @@
       function saveState() {
         localStorage.setItem('micro_office_chat_state', JSON.stringify(appState));
       }
+
+      resetStateBtn.addEventListener('click', () => {
+        if (confirm('保存された名前や部屋設定を初期リセットしますか？')) {
+          localStorage.removeItem('micro_office_chat_state');
+          location.reload();
+        }
+      });
 
       function playNotificationSound() {
         if (!isSoundEnabled) return;
@@ -341,8 +400,14 @@
             
             if (!isInitialLoad && newMsgs.length > currentMessages.length) {
               const latestMsg = newMsgs[newMsgs.length - 1];
-              playNotificationSound();
-              showDesktopNotification(latestMsg);
+              if (latestMsg.senderName !== appState.userName) {
+                unreadCount++;
+                updateBadgeUI();
+                playNotificationSound();
+                showDesktopNotification(latestMsg);
+              } else {
+                playNotificationSound();
+              }
             }
             isInitialLoad = false;
 
@@ -557,6 +622,10 @@
         const displayName = appState.userName.trim() || 'メンバー';
         const avatar = displayName.charAt(0).toUpperCase();
         const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+        
+        const initialReads = {};
+        initialReads[myId] = { name: displayName, time: Date.now() };
+
         const msgObj = {
           id: msgId,
           senderName: displayName,
@@ -565,7 +634,8 @@
           stamp: stamp || null,
           file: file || null,
           timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
-          groupId: gId
+          groupId: gId,
+          reads: initialReads
         };
 
         if (db) {
@@ -625,7 +695,9 @@
             scrollToBottom();
             playNotificationSound();
           }
-          if (document.hidden || !document.hasFocus()) {
+          if (msg.senderName !== appState.userName) {
+            unreadCount++;
+            updateBadgeUI();
             showDesktopNotification(msg);
           }
         }
@@ -687,6 +759,16 @@
           }
         }
 
+        const reads = msg.reads || {};
+        const readKeys = Object.keys(reads);
+        const readCount = readKeys.length;
+        
+        let readBadgeHTML = '';
+        if (readCount > 0) {
+          const names = Object.values(reads).map(r => r.name).join(', ');
+          readBadgeHTML = `<div class="msg-read-status" title="既読: ${escapeHTML(names)}">👀 既読 ${readCount}</div>`;
+        }
+
         item.innerHTML = `
           <div class="msg-avatar">${escapeHTML(msg.avatarLetter)}</div>
           <div class="msg-body">
@@ -695,7 +777,10 @@
               <span class="msg-time">${msg.timestamp}</span>
             </div>
             ${bodyContent}
-            <button class="msg-delete-btn" onclick="deleteSingleMsg('${msg.id}')" title="削除">✕</button>
+            <div class="msg-footer-info">
+              ${readBadgeHTML}
+              <button class="msg-delete-btn" onclick="deleteSingleMsg('${msg.id}')" title="削除">✕</button>
+            </div>
           </div>
         `;
 
@@ -717,36 +802,25 @@
       }
 
       function showDesktopNotification(msg) {
+        if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+          Notification.requestPermission();
+        }
         if ('Notification' in window && Notification.permission === 'granted') {
           const curRoom = getCurrentRoom();
           const n = new Notification(`⚡ [${curRoom.name}] ${msg.senderName}さんからの声掛け`, {
             body: msg.stamp || msg.text || 'ファイルが届きました',
             icon: '/favicon.ico'
           });
-          n.onclick = () => window.focus();
+          n.onclick = () => {
+            window.focus();
+            markCurrentMessagesAsRead();
+          };
         }
       }
 
       function escapeHTML(str) {
         return (str || '').replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
       }
-
-      let isDragging = false, offsetX, offsetY;
-      const dragHeader = document.getElementById('dragHeader');
-      dragHeader.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.header-actions')) return;
-        isDragging = true;
-        offsetX = e.clientX - chatContainer.getBoundingClientRect().left;
-        offsetY = e.clientY - chatContainer.getBoundingClientRect().top;
-      });
-      document.addEventListener('mousemove', (e) => {
-        if (isDragging) {
-          chatContainer.style.position = 'fixed';
-          chatContainer.style.left = `${e.clientX - offsetX}px`;
-          chatContainer.style.top = `${e.clientY - offsetY}px`;
-        }
-      });
-      document.addEventListener('mouseup', () => isDragging = false);
 
       init();
       setInterval(announcePresence, 5000);
