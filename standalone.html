@@ -111,7 +111,7 @@
 
       <hr>
 
-      <h4>➕ 新しい部屋の追加 ＆ カラー設定</h4>
+      <h4>➕ 新しい部屋の追加 ＆ リセット時刻設定</h4>
       <div class="form-group">
         <label for="newRoomNameInput">部屋名 (例: 打ち合わせ用, プロジェクトA):</label>
         <input type="text" id="newRoomNameInput" placeholder="部屋の名前">
@@ -123,6 +123,26 @@
       <div class="form-group">
         <label for="newPasscodeInput">合言葉 (パスコード):</label>
         <input type="text" id="newPasscodeInput" placeholder="合言葉（例: 1234）" value="1234">
+      </div>
+
+      <div class="form-group">
+        <label for="newPurgeTimeSelect">⏰ 毎日の自動ログクリア時刻:</label>
+        <select id="newPurgeTimeSelect">
+          <option value="00:00" selected>00:00 (深夜0時・デフォルト)</option>
+          <option value="01:00">01:00 (深夜1時)</option>
+          <option value="02:00">02:00 (深夜2時)</option>
+          <option value="03:00">03:00 (深夜3時)</option>
+          <option value="04:00">04:00 (早朝4時)</option>
+          <option value="05:00">05:00 (早朝5時)</option>
+          <option value="06:00">06:00 (朝6時)</option>
+          <option value="07:00">07:00 (朝7時)</option>
+          <option value="08:00">08:00 (朝8時)</option>
+          <option value="09:00">09:00 (朝9時)</option>
+          <option value="12:00">12:00 (正午)</option>
+          <option value="18:00">18:00 (夕方6時)</option>
+          <option value="21:00">21:00 (夜9時)</option>
+        </select>
+        <small>※指定した時刻を過ぎると前日のログが自動リセットされます。</small>
       </div>
 
       <div class="form-group">
@@ -141,7 +161,7 @@
 
       <hr>
 
-      <h4>📋 参加中の部屋一覧（ID・合言葉確認）</h4>
+      <h4>📋 参加中の部屋一覧（ID・合言葉・リセット時刻）</h4>
       <div id="savedRoomsList" class="saved-rooms-list"></div>
 
       <div class="modal-actions" style="justify-content: space-between;">
@@ -202,6 +222,7 @@
       const newRoomNameInput = document.getElementById('newRoomNameInput');
       const newRoomIdInput = document.getElementById('newRoomIdInput');
       const newPasscodeInput = document.getElementById('newPasscodeInput');
+      const newPurgeTimeSelect = document.getElementById('newPurgeTimeSelect');
       const colorPickerOptions = document.getElementById('colorPickerOptions');
       const addNewRoomConfirmBtn = document.getElementById('addNewRoomConfirmBtn');
       const savedRoomsList = document.getElementById('savedRoomsList');
@@ -224,7 +245,7 @@
           userStatus: '🟢 在席',
           activeRoomId: 'general',
           rooms: [
-            { id: 'general', name: 'メインルーム', passcode: '1234', color: 'indigo' }
+            { id: 'general', name: 'メインルーム', passcode: '1234', color: 'indigo', purgeTime: '00:00' }
           ],
           isPinned: false
         };
@@ -240,8 +261,13 @@
         Notification.requestPermission();
       }
 
-      function getTodayDateString() {
-        const d = new Date();
+      function getSessionDateString(dateObj, purgeTimeStr) {
+        const d = new Date(dateObj || Date.now());
+        const [targetHour, targetMin] = (purgeTimeStr || '00:00').split(':').map(Number);
+        
+        if (d.getHours() < targetHour || (d.getHours() === targetHour && d.getMinutes() < targetMin)) {
+          d.setDate(d.getDate() - 1);
+        }
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       }
 
@@ -400,7 +426,8 @@
         isInitialLoad = true;
 
         const roomKey = getRoomFirebaseKey(curRoom);
-        const todayStr = getTodayDateString();
+        const purgeTime = curRoom.purgeTime || '00:00';
+        const currentSessionDate = getSessionDateString(new Date(), purgeTime);
 
         if (db) {
           if (activeFirebaseListenerKey) {
@@ -415,13 +442,14 @@
             let allMsgs = data ? Object.values(data) : [];
             
             const oldMsgIds = [];
-            const todayMsgs = [];
+            const validSessionMsgs = [];
 
             allMsgs.forEach(m => {
-              if (m.dateStr && m.dateStr !== todayStr) {
+              const msgSessionDate = m.sessionDate || (m.timestampMs ? getSessionDateString(new Date(m.timestampMs), purgeTime) : null);
+              if (msgSessionDate && msgSessionDate !== currentSessionDate) {
                 oldMsgIds.push(m.id);
               } else {
-                todayMsgs.push(m);
+                validSessionMsgs.push(m);
               }
             });
 
@@ -431,8 +459,8 @@
               });
             }
 
-            if (!isInitialLoad && todayMsgs.length > currentMessages.length) {
-              const latestMsg = todayMsgs[todayMsgs.length - 1];
+            if (!isInitialLoad && validSessionMsgs.length > currentMessages.length) {
+              const latestMsg = validSessionMsgs[validSessionMsgs.length - 1];
               if (latestMsg.senderName !== appState.userName) {
                 unreadCount++;
                 updateBadgeUI();
@@ -444,7 +472,7 @@
             }
             isInitialLoad = false;
 
-            currentMessages = todayMsgs;
+            currentMessages = validSessionMsgs;
             renderMessages(currentMessages);
           });
 
@@ -542,6 +570,7 @@
         const name = newRoomNameInput.value.trim();
         const id = newRoomIdInput.value.trim();
         const passcode = newPasscodeInput.value.trim();
+        const purgeTime = newPurgeTimeSelect.value;
 
         if (!name || !id) {
           alert('部屋名と部屋IDを入力してください。');
@@ -550,11 +579,12 @@
 
         const existing = appState.rooms.find(r => r.id === id);
         if (!existing) {
-          appState.rooms.push({ id, name, passcode, color: selectedColorTheme });
+          appState.rooms.push({ id, name, passcode, color: selectedColorTheme, purgeTime });
         } else {
           existing.name = name;
           existing.passcode = passcode;
           existing.color = selectedColorTheme;
+          existing.purgeTime = purgeTime;
         }
 
         appState.activeRoomId = id;
@@ -576,10 +606,11 @@
           const item = document.createElement('div');
           item.className = 'saved-room-item';
           const passcodeStr = r.passcode ? r.passcode : 'なし';
+          const purgeTimeStr = r.purgeTime ? r.purgeTime : '00:00';
           item.innerHTML = `
             <div style="display:flex; flex-direction:column; gap:1px; min-width:0; flex:1;">
               <span>🏢 <strong>${escapeHTML(r.name)}</strong></span>
-              <span style="font-size:8.5px; color:#94a3b8;">ID: <code>${escapeHTML(r.id)}</code> | 合言葉: <code>${escapeHTML(passcodeStr)}</code></span>
+              <span style="font-size:8.5px; color:#94a3b8;">ID: <code>${escapeHTML(r.id)}</code> | 合言葉: <code>${escapeHTML(passcodeStr)}</code> | ⏰: ${escapeHTML(purgeTimeStr)}</span>
             </div>
             <div style="display:flex; gap:4px; align-items:center;">
               <button onclick="copyRoomInfo('${escapeHTML(r.id)}', '${escapeHTML(passcodeStr)}')" class="small-btn" title="招待用情報をコピー">📋 共有</button>
@@ -667,6 +698,7 @@
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
         const roomKey = getRoomFirebaseKey(curRoom);
+        const purgeTime = curRoom.purgeTime || '00:00';
 
         const displayName = appState.userName.trim() || 'メンバー';
         const avatar = displayName.charAt(0).toUpperCase();
@@ -675,6 +707,8 @@
         const initialReads = {};
         initialReads[myId] = { name: displayName, time: Date.now() };
 
+        const nowMs = Date.now();
+
         const msgObj = {
           id: msgId,
           senderName: displayName,
@@ -682,8 +716,9 @@
           text: text || '',
           stamp: stamp || null,
           file: file || null,
-          timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
-          dateStr: getTodayDateString(),
+          timestamp: new Date(nowMs).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+          timestampMs: nowMs,
+          sessionDate: getSessionDateString(new Date(nowMs), purgeTime),
           groupId: roomKey,
           reads: initialReads
         };
