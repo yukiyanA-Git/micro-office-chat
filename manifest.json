@@ -1,15 +1,15 @@
 {
-  "short_name": "オフィスチャット",
-  "name": "Micro Office Chat",
+  "name": "Desk Chat",
+  "short_name": "Desk Chat",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#12151e",
+  "theme_color": "#6366f1",
   "icons": [
     {
       "src": "icon.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "192x192 512x512",
+      "type": "image/png"
     }
-  ],
-  "start_url": "./index.html",
-  "background_color": "#12151e",
-  "theme_color": "#6366f1",
-  "display": "standalone"
+  ]
 }

@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>オフィスチャット</title>
+  <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="public/styles.css">
+  <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -23,7 +23,7 @@
     <header class="app-header" id="dragHeader">
       <div class="header-title">
         <span class="app-icon" id="roomThemeIcon">💬</span>
-        <span class="app-name" id="currentRoomTitle">オフィスチャット</span>
+        <span class="app-name" id="currentRoomTitle">Desk Chat</span>
       </div>
       <div class="header-actions">
         <button id="soundToggleBtn" class="icon-btn active" title="通知音 (ON/OFF)">🔊</button>
@@ -202,6 +202,7 @@
   </div>
 
   <script>
+    // Firebase設定
     const firebaseConfig = {
       apiKey: "AIzaSyDTcSTgVeVYix7oJiPVfNXqH3QtNzuduuM",
       authDomain: "micro-chat-c25bb.firebaseapp.com",
@@ -343,7 +344,7 @@
 
       function updateBadgeUI() {
         const curRoom = getCurrentRoom();
-        const baseTitle = curRoom ? curRoom.name : 'オフィスチャット';
+        const baseTitle = curRoom ? curRoom.name : 'Desk Chat';
         if (unreadCount > 0) {
           document.title = `(${unreadCount}) 💬 ${baseTitle}`;
           if ('setAppBadge' in navigator) {
@@ -709,7 +710,7 @@
       }
 
       window.copyRoomInfo = function(roomId, passcode) {
-        const text = `【オフィスチャット部屋参加情報】\n部屋ID: ${roomId}\n合言葉: ${passcode}`;
+        const text = `【Desk Chat 部屋参加情報】\n部屋ID: ${roomId}\n合言葉: ${passcode}`;
         navigator.clipboard.writeText(text).then(() => {
           alert('部屋IDと合言葉をコピーしました！\n新しいメンバーに共有してください。');
         });
@@ -831,7 +832,8 @@
 
         let textToCopy = `=== ${curRoom.name} チャット全ログ (${new Date().toLocaleDateString()}) ===\n\n`;
         currentMessages.forEach(m => {
-          const content = m.stamp ? `[${m.timestamp}] ${m.senderName}: ${content}\n`;
+          const content = m.stamp ? `[ ${m.stamp} ]` : m.text;
+          textToCopy += `[${m.timestamp}] ${m.senderName}: ${content}\n`;
         });
 
         navigator.clipboard.writeText(textToCopy).then(() => {
