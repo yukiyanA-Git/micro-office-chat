@@ -301,7 +301,6 @@ html, body {
   display: flex;
   gap: 5px;
   align-items: flex-start;
-  animation: fadeIn 0.15s ease-out;
   position: relative;
 }
 

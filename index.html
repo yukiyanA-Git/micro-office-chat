@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20260806_3">
+  <link rel="stylesheet" href="styles.css?v=20260806_4">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -343,7 +343,6 @@
         return `${room.id}_${passcodeStr}`;
       }
 
-      // 明示的な操作時のみ既読を送信（タイマー連打なし）
       ['click', 'touchstart', 'focusin'].forEach(evtType => {
         chatContainer.addEventListener(evtType, markCurrentMessagesAsRead, { passive: true });
       });
@@ -364,7 +363,6 @@
         announcePresence();
       }
 
-      // 必要時のみ極小の単一既読書き込み（無駄な連打ゼロ）
       function markCurrentMessagesAsRead() {
         unreadCount = 0;
         updateBadgeUI();
@@ -372,11 +370,9 @@
         const curRoom = getCurrentRoom();
         if (!curRoom || !db || !appState.userName) return;
 
-        // 最新メッセージのタイムスタンプを取得
         const latestMsg = currentMessages[currentMessages.length - 1];
         const latestTime = latestMsg ? (latestMsg.timestampMs || 0) : Date.now();
 
-        // 既に最新のメッセージまで読んでいる場合は何もしない！（無限ループ完全防止）
         if (myLastReadTimestamp >= latestTime) return;
 
         myLastReadTimestamp = Date.now();
@@ -524,13 +520,13 @@
 
           activeFirebaseListenerKey = roomKey;
 
-          // 1. 既読リスナー（既読バッジ部分のテキストのみ静かに書き換え）
+          // 1. 既読更新（既読文字バッジのみを静かに書き換え）
           db.ref(`rooms/${roomKey}/lastRead`).on('value', (snapshot) => {
             userLastReadTimes = snapshot.val() || {};
             updateReadBadgesOnly();
           });
 
-          // 2. メッセージリスナー（変更時のみ安全にレンダリング）
+          // 2. メッセージ受信（差分があった時のみ安全にレンダリング）
           db.ref(`rooms/${roomKey}/messages`).on('value', (snapshot) => {
             const data = snapshot.val();
             let allMsgs = data ? Object.values(data) : [];
@@ -570,8 +566,17 @@
             }
             isInitialLoad = false;
 
+            // メッセージ内容が実際に変わったか判定
+            const isMsgChanged = (slicedMsgs.length !== currentMessages.length) || 
+                                 (slicedMsgs.length > 0 && currentMessages.length > 0 && 
+                                  slicedMsgs[slicedMsgs.length - 1].id !== currentMessages[currentMessages.length - 1].id);
+
             currentMessages = slicedMsgs;
-            renderMessages(currentMessages);
+            if (isMsgChanged || chatTimeline.children.length <= 1) {
+              renderMessages(currentMessages);
+            } else {
+              updateReadBadgesOnly();
+            }
 
             if (document.visibilityState === 'visible') {
               markCurrentMessagesAsRead();
@@ -587,7 +592,6 @@
         }
       }
 
-      // 存在通知は起動時・切り替え時に1回だけ書き込み（タイマー連打禁止）
       function announcePresence() {
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
