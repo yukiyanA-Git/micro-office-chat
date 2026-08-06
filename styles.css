@@ -1,6 +1,6 @@
 :root {
   --bg-primary: #12151e;
-  --bg-card: rgba(26, 31, 46, 0.85);
+  --bg-card: rgba(26, 31, 46, 0.95);
   --bg-card-hover: rgba(35, 42, 62, 0.95);
   --bg-input: #1a1e2d;
   --accent-color: #6366f1;
@@ -25,26 +25,20 @@
   user-select: none;
 }
 
-body {
-  background-color: transparent;
+html, body {
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-primary);
   color: var(--text-main);
   font-size: 13px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 10px;
+  overflow: hidden;
 }
 
+/* メインチャットコンテナ（ウィンドウサイズに余白ゼロで100%ピッタリフィット＆伸縮） */
 .chat-container {
-  width: 330px;
-  height: 540px;
+  width: 100vw;
+  height: 100vh;
   background: var(--bg-card);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-main);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -53,12 +47,13 @@ body {
 }
 
 .chat-container.pinned {
-  border-color: var(--accent-color);
+  border: 2px solid var(--accent-color);
   box-shadow: 0 0 15px var(--accent-light);
 }
 
+/* ヘッダー */
 .app-header {
-  background: rgba(15, 18, 28, 0.75);
+  background: rgba(15, 18, 28, 0.85);
   padding: 8px 12px;
   display: flex;
   justify-content: space-between;
@@ -67,6 +62,7 @@ body {
   border-top: 3px solid var(--accent-color);
   cursor: move;
   transition: border-color 0.2s;
+  flex-shrink: 0;
 }
 
 .header-title {
@@ -77,11 +73,15 @@ body {
   font-size: 13px;
   letter-spacing: 0.3px;
   color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-actions {
   display: flex;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .icon-btn {
@@ -105,6 +105,7 @@ body {
   background: var(--accent-light);
 }
 
+/* 部屋切り替えバー */
 .group-select-bar {
   display: flex;
   align-items: center;
@@ -113,6 +114,7 @@ body {
   border-bottom: 1px solid var(--border-color);
   padding: 5px 8px;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .select-wrapper {
@@ -120,6 +122,7 @@ body {
   align-items: center;
   gap: 4px;
   flex: 1;
+  min-width: 0;
 }
 
 .room-icon {
@@ -137,6 +140,8 @@ body {
   font-weight: 600;
   outline: none;
   cursor: pointer;
+  min-width: 0;
+  text-overflow: ellipsis;
 }
 
 .small-add-btn {
@@ -150,6 +155,7 @@ body {
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .small-add-btn:hover {
@@ -157,6 +163,7 @@ body {
   color: #fff;
 }
 
+/* メンバーバー (アバター一覧) */
 .members-bar {
   padding: 6px 10px;
   background: rgba(18, 21, 30, 0.4);
@@ -165,6 +172,7 @@ body {
   align-items: center;
   gap: 8px;
   overflow-x: auto;
+  flex-shrink: 0;
 }
 
 .members-label {
@@ -179,6 +187,7 @@ body {
   gap: 6px;
 }
 
+/* 1文字アバターアイコン */
 .avatar-badge {
   width: 24px;
   height: 24px;
@@ -193,6 +202,7 @@ body {
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .avatar-badge.online::after {
@@ -207,6 +217,7 @@ body {
   border-radius: var(--radius-full);
 }
 
+/* ツールバー (クリア / コピー / ステータス) */
 .toolbar {
   padding: 6px 10px;
   display: flex;
@@ -214,6 +225,7 @@ body {
   align-items: center;
   background: rgba(10, 12, 20, 0.3);
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .status-selector {
@@ -261,6 +273,7 @@ body {
   border-color: var(--danger-color);
 }
 
+/* タイムライン */
 .chat-timeline {
   flex: 1;
   padding: 10px;
@@ -268,6 +281,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 100px;
 }
 
 .chat-timeline::-webkit-scrollbar {
@@ -287,6 +301,7 @@ body {
   line-height: 1.5;
 }
 
+/* メッセージアイテム */
 .msg-item {
   display: flex;
   gap: 6px;
@@ -321,7 +336,7 @@ body {
   padding: 6px 8px;
   border-radius: 0 var(--radius-md) var(--radius-md) var(--radius-md);
   border: 1px solid var(--border-color);
-  max-width: 85%;
+  max-width: 88%;
   position: relative;
 }
 
@@ -383,6 +398,7 @@ body {
   color: var(--danger-color);
 }
 
+/* クイック声掛けスタンプエリア (コンパクト可変グリッド) */
 .quick-stamps {
   padding: 6px 8px;
   background: rgba(15, 18, 28, 0.5);
@@ -392,6 +408,7 @@ body {
   gap: 4px;
   max-height: 110px;
   overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .stamp-btn {
@@ -405,6 +422,9 @@ body {
   cursor: pointer;
   text-align: center;
   transition: all 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stamp-btn:hover {
@@ -418,10 +438,12 @@ body {
   transform: translateY(0);
 }
 
+/* メッセージ入力エリア */
 .chat-input-area {
   padding: 6px 8px;
   background: rgba(10, 12, 20, 0.8);
   border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .file-attachment-preview {
@@ -456,6 +478,7 @@ body {
   padding: 4px 6px;
   color: var(--text-muted);
   transition: color 0.2s;
+  flex-shrink: 0;
 }
 
 .file-attach-btn:hover {
@@ -472,6 +495,7 @@ body {
   font-size: 12px;
   outline: none;
   user-select: text;
+  min-width: 0;
 }
 
 .input-form input[type="text"]:focus {
@@ -488,6 +512,7 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
+  flex-shrink: 0;
 }
 
 .send-btn:hover {

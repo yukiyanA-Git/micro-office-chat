@@ -144,13 +144,15 @@
       <h4>登録済みの部屋一覧</h4>
       <div id="savedRoomsList" class="saved-rooms-list"></div>
 
-      <div class="modal-actions">
+      <div class="modal-actions" style="justify-content: space-between;">
+        <button id="resetStateBtn" class="danger-btn small-btn" style="padding: 4px 8px;">🗑️ 登録名をリセット</button>
         <button id="closeModalBtn" class="secondary-btn">閉じる</button>
       </div>
     </div>
   </div>
 
   <script>
+    // Firebase設定
     const firebaseConfig = {
       apiKey: "AIzaSyDTcSTgVeVYix7oJiPVfNXqH3QtNzuduuM",
       authDomain: "micro-chat-c25bb.firebaseapp.com",
@@ -205,19 +207,29 @@
       const addNewRoomConfirmBtn = document.getElementById('addNewRoomConfirmBtn');
       const savedRoomsList = document.getElementById('savedRoomsList');
       const closeModalBtn = document.getElementById('closeModalBtn');
+      const resetStateBtn = document.getElementById('resetStateBtn');
 
       let selectedColorTheme = 'indigo';
       let isSoundEnabled = true;
 
-      let appState = JSON.parse(localStorage.getItem('micro_office_chat_state')) || {
-        userName: '',
-        userStatus: '🟢 在席',
-        activeRoomId: 'general',
-        rooms: [
-          { id: 'general', name: 'メインルーム', passcode: '', color: 'indigo' }
-        ],
-        isPinned: false
-      };
+      // 古いキャッシュ「山田」をクリアするリセットチェック
+      let appState = JSON.parse(localStorage.getItem('micro_office_chat_state'));
+      if (appState && appState.userName === '山田') {
+        appState.userName = '';
+        localStorage.setItem('micro_office_chat_state', JSON.stringify(appState));
+      }
+
+      if (!appState) {
+        appState = {
+          userName: '',
+          userStatus: '🟢 在席',
+          activeRoomId: 'general',
+          rooms: [
+            { id: 'general', name: 'メインルーム', passcode: '', color: 'indigo' }
+          ],
+          isPinned: false
+        };
+      }
 
       const myId = 'user_' + Math.random().toString(36).substr(2, 6);
       let activeMembers = {};
@@ -247,6 +259,14 @@
       function saveState() {
         localStorage.setItem('micro_office_chat_state', JSON.stringify(appState));
       }
+
+      // 名前・設定のリセットボタン
+      resetStateBtn.addEventListener('click', () => {
+        if (confirm('保存された名前や部屋設定を初期リセットしますか？')) {
+          localStorage.removeItem('micro_office_chat_state');
+          location.reload();
+        }
+      });
 
       function playNotificationSound() {
         if (!isSoundEnabled) return;
@@ -719,6 +739,9 @@
       }
 
       function showDesktopNotification(msg) {
+        if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+          Notification.requestPermission();
+        }
         if ('Notification' in window && Notification.permission === 'granted') {
           const curRoom = getCurrentRoom();
           const n = new Notification(`⚡ [${curRoom.name}] ${msg.senderName}さんからの声掛け`, {
