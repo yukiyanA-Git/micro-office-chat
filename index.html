@@ -299,14 +299,15 @@
         };
       }
 
-      // 端末・ブラウザごとのユニークユーザーIDを固定化
+      // 端末ごとの固定ユニークユーザーID
       let myId = localStorage.getItem('micro_office_chat_uid');
       if (!myId) {
-        myId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        myId = 'u_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
         localStorage.setItem('micro_office_chat_uid', myId);
       }
 
       let activeMembers = {};
+      let userLastReadTimes = {}; // 各メンバーの最終既読タイムスタンプ { userId: timestampMs }
       let attachedFile = null;
       let currentMessages = [];
       let activeFirebaseListenerKey = null;
@@ -331,14 +332,14 @@
         return `${room.id}_${passcodeStr}`;
       }
 
-      // 手動操作時の既読トリガー
+      // 手動操作時の既読更新トリガー
       const readTriggers = ['click', 'touchstart', 'pointerdown', 'focusin', 'mousemove'];
       readTriggers.forEach(evtType => {
         chatContainer.addEventListener(evtType, markCurrentMessagesAsRead, { passive: true });
       });
       chatTimeline.addEventListener('scroll', markCurrentMessagesAsRead, { passive: true });
 
-      // 画面がアクティブ（開いて見ている状態）なら自動で既読を即座に送信
+      // 画面がアクティブ（開いて見ている状態）なら自動で既読タイムスタンプを更新
       function autoReadIfActive() {
         if (document.visibilityState === 'visible' && document.hasFocus()) {
           markCurrentMessagesAsRead();
@@ -362,6 +363,7 @@
         announcePresence();
       }
 
+      // 【最高速・超軽量】各ユーザーの「最終閲覧タイムスタンプ」を単一ノードに記録
       function markCurrentMessagesAsRead() {
         unreadCount = 0;
         updateBadgeUI();
@@ -370,18 +372,13 @@
         if (!curRoom || !db || !appState.userName) return;
 
         const roomKey = getRoomFirebaseKey(curRoom);
+        const now = Date.now();
 
-        currentMessages.forEach(msg => {
-          if (msg.senderName !== appState.userName) {
-            const reads = msg.reads || {};
-            if (!reads[myId]) {
-              // 相手のメッセージを見たので自分の既読を送信
-              db.ref(`rooms/${roomKey}/messages/${msg.id}/reads/${myId}`).set({
-                name: appState.userName,
-                time: Date.now()
-              });
-            }
-          }
+        // 自分が最後に読んだ時刻を単一書き込み（メッセージを改変しないため通信爆速！）
+        db.ref(`rooms/${roomKey}/lastRead/${myId}`).set({
+          userId: myId,
+          userName: appState.userName,
+          readTime: now
         });
       }
 
@@ -516,16 +513,22 @@
           if (activeFirebaseListenerKey) {
             db.ref(`rooms/${activeFirebaseListenerKey}/messages`).off();
             db.ref(`rooms/${activeFirebaseListenerKey}/members`).off();
+            db.ref(`rooms/${activeFirebaseListenerKey}/lastRead`).off();
           }
 
           activeFirebaseListenerKey = roomKey;
 
-          // 最適化したリアルタイムメッセージリスナー（最新50件を確実にリアルタイム検知）
+          // 1. 各メンバーの最終既読タイムスタンプをリアルタイム監視
+          db.ref(`rooms/${roomKey}/lastRead`).on('value', (snapshot) => {
+            userLastReadTimes = snapshot.val() || {};
+            renderMessages(currentMessages); // 既読数が変わったら再描画
+          });
+
+          // 2. メッセージをリアルタイム受信（タイムラグ0秒の最速処理）
           db.ref(`rooms/${roomKey}/messages`).on('value', (snapshot) => {
             const data = snapshot.val();
             let allMsgs = data ? Object.values(data) : [];
             
-            // 日付でソート
             allMsgs.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
 
             const oldMsgIds = [];
@@ -540,7 +543,6 @@
               }
             });
 
-            // 最新50件のみを有効メッセージとする
             const slicedMsgs = validSessionMsgs.slice(-50);
 
             if (oldMsgIds.length > 0) {
@@ -551,7 +553,7 @@
 
             if (!isInitialLoad && slicedMsgs.length > currentMessages.length) {
               const latestMsg = slicedMsgs[slicedMsgs.length - 1];
-              if (latestMsg.senderName !== appState.userName) {
+              if (latestMsg.senderId !== myId && latestMsg.senderName !== appState.userName) {
                 unreadCount++;
                 updateBadgeUI();
                 playNotificationSound();
@@ -565,10 +567,10 @@
             currentMessages = slicedMsgs;
             renderMessages(currentMessages);
 
-            // 画面が開いて表示されている場合は自動的に「見た（既読）」を送信
             autoReadIfActive();
           });
 
+          // 3. オンラインメンバー監視
           db.ref(`rooms/${roomKey}/members`).on('value', (snapshot) => {
             const data = snapshot.val();
             activeMembers = data || {};
@@ -858,14 +860,12 @@
         const displayName = appState.userName.trim() || 'メンバー';
         const avatar = displayName.charAt(0).toUpperCase();
         const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-        
-        const initialReads = {};
-        initialReads[myId] = { name: displayName, time: Date.now() };
-
         const nowMs = Date.now();
 
+        // 完全にクリーンで軽量なメッセージオブジェクト（リアルタイム通信最速）
         const msgObj = {
           id: msgId,
+          senderId: myId,
           senderName: displayName,
           avatarLetter: avatar,
           text: text || '',
@@ -874,8 +874,7 @@
           timestamp: new Date(nowMs).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
           timestampMs: nowMs,
           sessionDate: getSessionDateString(new Date(nowMs), purgeTime),
-          groupId: roomKey,
-          reads: initialReads
+          groupId: roomKey
         };
 
         if (db) {
@@ -1004,20 +1003,25 @@
           }
         }
 
-        // 既読カウントの厳密な集計：送信者以外のユニークな「相手の名前」の数のみをカウント
-        const reads = msg.reads || {};
-        const readerNames = new Set();
-        Object.values(reads).forEach(r => {
-          if (r.name && r.name !== msg.senderName) {
-            readerNames.add(r.name);
+        // 【超明快・完全正確】既読人数のリアルタイム集計
+        // 「メッセージの送信日時 (timestampMs)」より後に画面を開いている（lastReadTime >= timestampMs）「自分以外のメンバー」の数を集計！
+        const readUserNames = [];
+        const msgTime = msg.timestampMs || 0;
+
+        Object.values(userLastReadTimes).forEach(readInfo => {
+          if (readInfo && readInfo.userId !== (msg.senderId || '')) {
+            // 自分以外、かつ送信者以外の相手で、メッセージ送信後に閲覧した人
+            if (readInfo.userId !== myId && readInfo.readTime >= msgTime) {
+              readUserNames.push(readInfo.userName || '相手');
+            }
           }
         });
         
-        const readCount = readerNames.size;
+        const readCount = readUserNames.length;
         
         let readBadgeHTML = '';
         if (readCount > 0) {
-          const names = Array.from(readerNames).join(', ');
+          const names = readUserNames.join(', ');
           readBadgeHTML = `<div class="msg-read-status" title="既読: ${escapeHTML(names)}">👀 既読 ${readCount}</div>`;
         }
 
@@ -1077,8 +1081,7 @@
 
       init();
       setInterval(announcePresence, 5000);
-      // 画面が開いていてアクティブな時は定期的に既読を更新
-      setInterval(autoReadIfActive, 3000);
+      setInterval(autoReadIfActive, 2000);
     });
   </script>
 </body>

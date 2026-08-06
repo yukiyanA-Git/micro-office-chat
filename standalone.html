@@ -300,11 +300,12 @@
 
       let myId = localStorage.getItem('micro_office_chat_uid');
       if (!myId) {
-        myId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        myId = 'u_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
         localStorage.setItem('micro_office_chat_uid', myId);
       }
 
       let activeMembers = {};
+      let userLastReadTimes = {};
       let attachedFile = null;
       let currentMessages = [];
       let activeFirebaseListenerKey = null;
@@ -366,17 +367,12 @@
         if (!curRoom || !db || !appState.userName) return;
 
         const roomKey = getRoomFirebaseKey(curRoom);
+        const now = Date.now();
 
-        currentMessages.forEach(msg => {
-          if (msg.senderName !== appState.userName) {
-            const reads = msg.reads || {};
-            if (!reads[myId]) {
-              db.ref(`rooms/${roomKey}/messages/${msg.id}/reads/${myId}`).set({
-                name: appState.userName,
-                time: Date.now()
-              });
-            }
-          }
+        db.ref(`rooms/${roomKey}/lastRead/${myId}`).set({
+          userId: myId,
+          userName: appState.userName,
+          readTime: now
         });
       }
 
@@ -511,9 +507,15 @@
           if (activeFirebaseListenerKey) {
             db.ref(`rooms/${activeFirebaseListenerKey}/messages`).off();
             db.ref(`rooms/${activeFirebaseListenerKey}/members`).off();
+            db.ref(`rooms/${activeFirebaseListenerKey}/lastRead`).off();
           }
 
           activeFirebaseListenerKey = roomKey;
+
+          db.ref(`rooms/${roomKey}/lastRead`).on('value', (snapshot) => {
+            userLastReadTimes = snapshot.val() || {};
+            renderMessages(currentMessages);
+          });
 
           db.ref(`rooms/${roomKey}/messages`).on('value', (snapshot) => {
             const data = snapshot.val();
@@ -543,7 +545,7 @@
 
             if (!isInitialLoad && slicedMsgs.length > currentMessages.length) {
               const latestMsg = slicedMsgs[slicedMsgs.length - 1];
-              if (latestMsg.senderName !== appState.userName) {
+              if (latestMsg.senderId !== myId && latestMsg.senderName !== appState.userName) {
                 unreadCount++;
                 updateBadgeUI();
                 playNotificationSound();
@@ -849,14 +851,11 @@
         const displayName = appState.userName.trim() || 'メンバー';
         const avatar = displayName.charAt(0).toUpperCase();
         const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-        
-        const initialReads = {};
-        initialReads[myId] = { name: displayName, time: Date.now() };
-
         const nowMs = Date.now();
 
         const msgObj = {
           id: msgId,
+          senderId: myId,
           senderName: displayName,
           avatarLetter: avatar,
           text: text || '',
@@ -865,8 +864,7 @@
           timestamp: new Date(nowMs).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
           timestampMs: nowMs,
           sessionDate: getSessionDateString(new Date(nowMs), purgeTime),
-          groupId: roomKey,
-          reads: initialReads
+          groupId: roomKey
         };
 
         if (db) {
@@ -995,19 +993,22 @@
           }
         }
 
-        const reads = msg.reads || {};
-        const readerNames = new Set();
-        Object.values(reads).forEach(r => {
-          if (r.name && r.name !== msg.senderName) {
-            readerNames.add(r.name);
+        const readUserNames = [];
+        const msgTime = msg.timestampMs || 0;
+
+        Object.values(userLastReadTimes).forEach(readInfo => {
+          if (readInfo && readInfo.userId !== (msg.senderId || '')) {
+            if (readInfo.userId !== myId && readInfo.readTime >= msgTime) {
+              readUserNames.push(readInfo.userName || '相手');
+            }
           }
         });
         
-        const readCount = readerNames.size;
+        const readCount = readUserNames.length;
         
         let readBadgeHTML = '';
         if (readCount > 0) {
-          const names = Array.from(readerNames).join(', ');
+          const names = readUserNames.join(', ');
           readBadgeHTML = `<div class="msg-read-status" title="既読: ${escapeHTML(names)}">👀 既読 ${readCount}</div>`;
         }
 
@@ -1067,7 +1068,7 @@
 
       init();
       setInterval(announcePresence, 5000);
-      setInterval(autoReadIfActive, 3000);
+      setInterval(autoReadIfActive, 2000);
     });
   </script>
 </body>
