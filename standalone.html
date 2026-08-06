@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="public/styles.css?v=20260806_4">
+  <link rel="stylesheet" href="public/styles.css?v=20260806_5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -320,7 +320,6 @@
       let attachedFile = null;
       let currentMessages = [];
       let activeFirebaseListenerKey = null;
-      let myLastReadTimestamp = 0;
 
       if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
@@ -369,18 +368,13 @@
         const curRoom = getCurrentRoom();
         if (!curRoom || !db || !appState.userName) return;
 
-        const latestMsg = currentMessages[currentMessages.length - 1];
-        const latestTime = latestMsg ? (latestMsg.timestampMs || 0) : Date.now();
-
-        if (myLastReadTimestamp >= latestTime) return;
-
-        myLastReadTimestamp = Date.now();
         const roomKey = getRoomFirebaseKey(curRoom);
+        const now = Date.now();
 
         db.ref(`rooms/${roomKey}/lastRead/${myId}`).set({
           userId: myId,
           userName: appState.userName,
-          readTime: myLastReadTimestamp
+          readTime: now
         });
       }
 
@@ -524,58 +518,59 @@
             updateReadBadgesOnly();
           });
 
-          db.ref(`rooms/${roomKey}/messages`).on('value', (snapshot) => {
-            const data = snapshot.val();
-            let allMsgs = data ? Object.values(data) : [];
+          currentMessages = [];
+          chatTimeline.innerHTML = '<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>';
+
+          const msgQuery = db.ref(`rooms/${roomKey}/messages`).limitToLast(50);
+
+          msgQuery.on('child_added', (snapshot) => {
+            const msg = snapshot.val();
+            if (!msg) return;
+
+            const msgSessionDate = msg.sessionDate || (msg.timestampMs ? getSessionDateString(new Date(msg.timestampMs), purgeTime) : null);
             
-            allMsgs.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
-
-            const oldMsgIds = [];
-            const validSessionMsgs = [];
-
-            allMsgs.forEach(m => {
-              const msgSessionDate = m.sessionDate || (m.timestampMs ? getSessionDateString(new Date(m.timestampMs), purgeTime) : null);
-              if (msgSessionDate && msgSessionDate !== currentSessionDate) {
-                oldMsgIds.push(m.id);
-              } else {
-                validSessionMsgs.push(m);
-              }
-            });
-
-            const slicedMsgs = validSessionMsgs.slice(-50);
-
-            if (oldMsgIds.length > 0) {
-              oldMsgIds.forEach(id => {
-                db.ref(`rooms/${roomKey}/messages/${id}`).remove();
-              });
+            if (msgSessionDate && msgSessionDate !== currentSessionDate) {
+              db.ref(`rooms/${roomKey}/messages/${msg.id}`).remove();
+              return;
             }
 
-            if (!isInitialLoad && slicedMsgs.length > currentMessages.length) {
-              const latestMsg = slicedMsgs[slicedMsgs.length - 1];
-              if (latestMsg.senderId !== myId && latestMsg.senderName !== appState.userName) {
+            if (currentMessages.some(m => m.id === msg.id)) return;
+
+            currentMessages.push(msg);
+            currentMessages.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
+
+            renderSingleMessage(msg);
+            scrollToBottom();
+
+            if (!isInitialLoad) {
+              if (msg.senderId !== myId && msg.senderName !== appState.userName) {
                 unreadCount++;
                 updateBadgeUI();
                 playNotificationSound();
-                showDesktopNotification(latestMsg);
+                showDesktopNotification(msg);
               } else {
                 playNotificationSound();
               }
-            }
-            isInitialLoad = false;
-
-            const isMsgChanged = (slicedMsgs.length !== currentMessages.length) || 
-                                 (slicedMsgs.length > 0 && currentMessages.length > 0 && 
-                                  slicedMsgs[slicedMsgs.length - 1].id !== currentMessages[currentMessages.length - 1].id);
-
-            currentMessages = slicedMsgs;
-            if (isMsgChanged || chatTimeline.children.length <= 1) {
-              renderMessages(currentMessages);
-            } else {
-              updateReadBadgesOnly();
             }
 
             if (document.visibilityState === 'visible') {
               markCurrentMessagesAsRead();
+            }
+          });
+
+          msgQuery.once('value', () => {
+            isInitialLoad = false;
+          });
+
+          db.ref(`rooms/${roomKey}/messages`).on('child_removed', (snapshot) => {
+            const removedMsg = snapshot.val();
+            if (!removedMsg) return;
+            currentMessages = currentMessages.filter(m => m.id !== removedMsg.id);
+            const elem = document.getElementById(`msg_${removedMsg.id}`);
+            if (elem) elem.remove();
+
+            if (currentMessages.length === 0) {
+              chatTimeline.innerHTML = '<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>';
             }
           });
 
@@ -924,7 +919,7 @@
             db.ref(`rooms/${roomKey}/messages`).remove();
           } else {
             currentMessages = [];
-            renderMessages([]);
+            chatTimeline.innerHTML = '<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>';
           }
           bc.postMessage({ type: 'CLEAR_ALL', groupId: roomKey });
         }
@@ -977,16 +972,6 @@
         membersList.appendChild(badge);
       }
 
-      function renderMessages(messages) {
-        chatTimeline.innerHTML = '';
-        if (messages.length === 0) {
-          chatTimeline.innerHTML = `<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>`;
-          return;
-        }
-        messages.forEach(m => renderSingleMessage(m));
-        scrollToBottom();
-      }
-
       function updateReadBadgesOnly() {
         currentMessages.forEach(msg => {
           const msgElem = document.getElementById(`msg_${msg.id}`);
@@ -1027,6 +1012,8 @@
       function renderSingleMessage(msg) {
         const notice = chatTimeline.querySelector('.timeline-empty-notice');
         if (notice) notice.remove();
+
+        if (document.getElementById(`msg_${msg.id}`)) return;
 
         const item = document.createElement('div');
         item.className = 'msg-item';
@@ -1091,7 +1078,8 @@
           db.ref(`rooms/${roomKey}/messages/${msgId}`).remove();
         } else {
           currentMessages = currentMessages.filter(m => m.id !== msgId);
-          renderMessages(currentMessages);
+          const elem = document.getElementById(`msg_${msgId}`);
+          if (elem) elem.remove();
         }
       };
 

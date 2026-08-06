@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20260806_4">
+  <link rel="stylesheet" href="styles.css?v=20260806_5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -321,7 +321,6 @@
       let attachedFile = null;
       let currentMessages = [];
       let activeFirebaseListenerKey = null;
-      let myLastReadTimestamp = 0;
 
       if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
@@ -343,6 +342,7 @@
         return `${room.id}_${passcodeStr}`;
       }
 
+      // 明示的タップ・フォーカス時に確実な既読送信
       ['click', 'touchstart', 'focusin'].forEach(evtType => {
         chatContainer.addEventListener(evtType, markCurrentMessagesAsRead, { passive: true });
       });
@@ -363,6 +363,7 @@
         announcePresence();
       }
 
+      // 【確実な既読送信】ガードを撤去し、最新メッセージがある状態なら自分の最終既読時刻を更新
       function markCurrentMessagesAsRead() {
         unreadCount = 0;
         updateBadgeUI();
@@ -370,18 +371,13 @@
         const curRoom = getCurrentRoom();
         if (!curRoom || !db || !appState.userName) return;
 
-        const latestMsg = currentMessages[currentMessages.length - 1];
-        const latestTime = latestMsg ? (latestMsg.timestampMs || 0) : Date.now();
-
-        if (myLastReadTimestamp >= latestTime) return;
-
-        myLastReadTimestamp = Date.now();
         const roomKey = getRoomFirebaseKey(curRoom);
+        const now = Date.now();
 
         db.ref(`rooms/${roomKey}/lastRead/${myId}`).set({
           userId: myId,
           userName: appState.userName,
-          readTime: myLastReadTimestamp
+          readTime: now
         });
       }
 
@@ -520,62 +516,49 @@
 
           activeFirebaseListenerKey = roomKey;
 
-          // 1. 既読更新（既読文字バッジのみを静かに書き換え）
+          // 1. 既読文字バッジのリアルタイム更新
           db.ref(`rooms/${roomKey}/lastRead`).on('value', (snapshot) => {
             userLastReadTimes = snapshot.val() || {};
             updateReadBadgesOnly();
           });
 
-          // 2. メッセージ受信（差分があった時のみ安全にレンダリング）
-          db.ref(`rooms/${roomKey}/messages`).on('value', (snapshot) => {
-            const data = snapshot.val();
-            let allMsgs = data ? Object.values(data) : [];
+          // 2. 【最重要】メッセージ受領を child_added + child_removed に変更（1件ごとのミリ秒リアルタイムプッシュ受信）
+          currentMessages = [];
+          chatTimeline.innerHTML = '<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>';
+
+          const msgQuery = db.ref(`rooms/${roomKey}/messages`).limitToLast(50);
+
+          msgQuery.on('child_added', (snapshot) => {
+            const msg = snapshot.val();
+            if (!msg) return;
+
+            const msgSessionDate = msg.sessionDate || (msg.timestampMs ? getSessionDateString(new Date(msg.timestampMs), purgeTime) : null);
             
-            allMsgs.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
-
-            const oldMsgIds = [];
-            const validSessionMsgs = [];
-
-            allMsgs.forEach(m => {
-              const msgSessionDate = m.sessionDate || (m.timestampMs ? getSessionDateString(new Date(m.timestampMs), purgeTime) : null);
-              if (msgSessionDate && msgSessionDate !== currentSessionDate) {
-                oldMsgIds.push(m.id);
-              } else {
-                validSessionMsgs.push(m);
-              }
-            });
-
-            const slicedMsgs = validSessionMsgs.slice(-50);
-
-            if (oldMsgIds.length > 0) {
-              oldMsgIds.forEach(id => {
-                db.ref(`rooms/${roomKey}/messages/${id}`).remove();
-              });
+            // 旧セッションの自動削除
+            if (msgSessionDate && msgSessionDate !== currentSessionDate) {
+              db.ref(`rooms/${roomKey}/messages/${msg.id}`).remove();
+              return;
             }
 
-            if (!isInitialLoad && slicedMsgs.length > currentMessages.length) {
-              const latestMsg = slicedMsgs[slicedMsgs.length - 1];
-              if (latestMsg.senderId !== myId && latestMsg.senderName !== appState.userName) {
+            // 重複チェック
+            if (currentMessages.some(m => m.id === msg.id)) return;
+
+            currentMessages.push(msg);
+            currentMessages.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
+
+            // 単一メッセージを即座に表示（画面全体をクリアしないため100%高速＆非チカチカ）
+            renderSingleMessage(msg);
+            scrollToBottom();
+
+            if (!isInitialLoad) {
+              if (msg.senderId !== myId && msg.senderName !== appState.userName) {
                 unreadCount++;
                 updateBadgeUI();
                 playNotificationSound();
-                showDesktopNotification(latestMsg);
+                showDesktopNotification(msg);
               } else {
                 playNotificationSound();
               }
-            }
-            isInitialLoad = false;
-
-            // メッセージ内容が実際に変わったか判定
-            const isMsgChanged = (slicedMsgs.length !== currentMessages.length) || 
-                                 (slicedMsgs.length > 0 && currentMessages.length > 0 && 
-                                  slicedMsgs[slicedMsgs.length - 1].id !== currentMessages[currentMessages.length - 1].id);
-
-            currentMessages = slicedMsgs;
-            if (isMsgChanged || chatTimeline.children.length <= 1) {
-              renderMessages(currentMessages);
-            } else {
-              updateReadBadgesOnly();
             }
 
             if (document.visibilityState === 'visible') {
@@ -583,7 +566,25 @@
             }
           });
 
-          // 3. メンバー監視
+          // 初回ロード完了判定
+          msgQuery.once('value', () => {
+            isInitialLoad = false;
+          });
+
+          // 削除時（一括消去・単一削除）
+          db.ref(`rooms/${roomKey}/messages`).on('child_removed', (snapshot) => {
+            const removedMsg = snapshot.val();
+            if (!removedMsg) return;
+            currentMessages = currentMessages.filter(m => m.id !== removedMsg.id);
+            const elem = document.getElementById(`msg_${removedMsg.id}`);
+            if (elem) elem.remove();
+
+            if (currentMessages.length === 0) {
+              chatTimeline.innerHTML = '<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>';
+            }
+          });
+
+          // 3. メンバー監視（名前変更・オンライン・ステータス即時反映）
           db.ref(`rooms/${roomKey}/members`).on('value', (snapshot) => {
             const data = snapshot.val();
             activeMembers = data || {};
@@ -929,7 +930,7 @@
             db.ref(`rooms/${roomKey}/messages`).remove();
           } else {
             currentMessages = [];
-            renderMessages([]);
+            chatTimeline.innerHTML = '<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>';
           }
           bc.postMessage({ type: 'CLEAR_ALL', groupId: roomKey });
         }
@@ -982,16 +983,6 @@
         membersList.appendChild(badge);
       }
 
-      function renderMessages(messages) {
-        chatTimeline.innerHTML = '';
-        if (messages.length === 0) {
-          chatTimeline.innerHTML = `<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>`;
-          return;
-        }
-        messages.forEach(m => renderSingleMessage(m));
-        scrollToBottom();
-      }
-
       function updateReadBadgesOnly() {
         currentMessages.forEach(msg => {
           const msgElem = document.getElementById(`msg_${msg.id}`);
@@ -1032,6 +1023,9 @@
       function renderSingleMessage(msg) {
         const notice = chatTimeline.querySelector('.timeline-empty-notice');
         if (notice) notice.remove();
+
+        // 既存エレメントがすでにある場合は追加しない
+        if (document.getElementById(`msg_${msg.id}`)) return;
 
         const item = document.createElement('div');
         item.className = 'msg-item';
@@ -1096,7 +1090,8 @@
           db.ref(`rooms/${roomKey}/messages/${msgId}`).remove();
         } else {
           currentMessages = currentMessages.filter(m => m.id !== msgId);
-          renderMessages(currentMessages);
+          const elem = document.getElementById(`msg_${msgId}`);
+          if (elem) elem.remove();
         }
       };
 
