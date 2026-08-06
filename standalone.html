@@ -122,7 +122,7 @@
       </div>
       <div class="form-group">
         <label for="newPasscodeInput">合言葉 (パスコード):</label>
-        <input type="text" id="newPasscodeInput" placeholder="知っている人だけ参加可能" value="1234">
+        <input type="text" id="newPasscodeInput" placeholder="合言葉（例: 1234）" value="1234">
       </div>
 
       <div class="form-group">
@@ -234,10 +234,16 @@
       let activeMembers = {};
       let attachedFile = null;
       let currentMessages = [];
-      let activeFirebaseListener = null;
+      let activeFirebaseListenerKey = null;
 
       if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
+      }
+
+      function getRoomFirebaseKey(room) {
+        if (!room) return 'general_1234';
+        const passcodeStr = (room.passcode || 'none').trim();
+        return `${room.id}_${passcodeStr}`;
       }
 
       chatContainer.addEventListener('click', markCurrentMessagesAsRead);
@@ -250,11 +256,13 @@
         const curRoom = getCurrentRoom();
         if (!curRoom || !db || !appState.userName) return;
 
+        const roomKey = getRoomFirebaseKey(curRoom);
+
         currentMessages.forEach(msg => {
           if (msg.senderName !== appState.userName) {
             const reads = msg.reads || {};
             if (!reads[myId]) {
-              db.ref(`rooms/${curRoom.id}/messages/${msg.id}/reads/${myId}`).set({
+              db.ref(`rooms/${roomKey}/messages/${msg.id}/reads/${myId}`).set({
                 name: appState.userName,
                 time: Date.now()
               });
@@ -386,15 +394,17 @@
         if (!curRoom) return;
         isInitialLoad = true;
 
+        const roomKey = getRoomFirebaseKey(curRoom);
+
         if (db) {
-          if (activeFirebaseListener) {
-            db.ref(`rooms/${activeFirebaseListener}/messages`).off();
-            db.ref(`rooms/${activeFirebaseListener}/members`).off();
+          if (activeFirebaseListenerKey) {
+            db.ref(`rooms/${activeFirebaseListenerKey}/messages`).off();
+            db.ref(`rooms/${activeFirebaseListenerKey}/members`).off();
           }
 
-          activeFirebaseListener = curRoom.id;
+          activeFirebaseListenerKey = roomKey;
 
-          db.ref(`rooms/${curRoom.id}/messages`).limitToLast(50).on('value', (snapshot) => {
+          db.ref(`rooms/${roomKey}/messages`).limitToLast(50).on('value', (snapshot) => {
             const data = snapshot.val();
             const newMsgs = data ? Object.values(data) : [];
             
@@ -415,7 +425,7 @@
             renderMessages(currentMessages);
           });
 
-          db.ref(`rooms/${curRoom.id}/members`).on('value', (snapshot) => {
+          db.ref(`rooms/${roomKey}/members`).on('value', (snapshot) => {
             const data = snapshot.val();
             activeMembers = data || {};
             renderMembers();
@@ -429,17 +439,19 @@
         const displayName = appState.userName.trim() || 'メンバー';
         const avatar = displayName.charAt(0).toUpperCase();
 
+        const roomKey = getRoomFirebaseKey(curRoom);
+
         const memberObj = {
           id: myId,
           name: displayName,
           avatarLetter: avatar,
           status: appState.userStatus,
-          groupId: curRoom.id,
+          groupId: roomKey,
           timestamp: Date.now()
         };
 
         if (db) {
-          const userRef = db.ref(`rooms/${curRoom.id}/members/${myId}`);
+          const userRef = db.ref(`rooms/${roomKey}/members/${myId}`);
           userRef.set(memberObj);
           userRef.onDisconnect().remove();
         }
@@ -631,7 +643,7 @@
       function sendMessage({ text, stamp, file }) {
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
-        const gId = curRoom.id;
+        const roomKey = getRoomFirebaseKey(curRoom);
 
         const displayName = appState.userName.trim() || 'メンバー';
         const avatar = displayName.charAt(0).toUpperCase();
@@ -648,12 +660,12 @@
           stamp: stamp || null,
           file: file || null,
           timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
-          groupId: gId,
+          groupId: roomKey,
           reads: initialReads
         };
 
         if (db) {
-          db.ref(`rooms/${gId}/messages/${msgId}`).set(msgObj);
+          db.ref(`rooms/${roomKey}/messages/${msgId}`).set(msgObj);
         } else {
           currentMessages.push(msgObj);
           renderSingleMessage(msgObj);
@@ -687,13 +699,14 @@
       clearAllBtn.addEventListener('click', () => {
         if (confirm('この部屋のチャットログを一括全消去しますか？\n（オンラインの全員の画面からも削除されます）')) {
           const curRoom = getCurrentRoom();
+          const roomKey = getRoomFirebaseKey(curRoom);
           if (db) {
-            db.ref(`rooms/${curRoom.id}/messages`).remove();
+            db.ref(`rooms/${roomKey}/messages`).remove();
           } else {
             currentMessages = [];
             renderMessages([]);
           }
-          bc.postMessage({ type: 'CLEAR_ALL', groupId: curRoom.id });
+          bc.postMessage({ type: 'CLEAR_ALL', groupId: roomKey });
         }
       });
 
@@ -701,9 +714,12 @@
         const data = e.data;
         if (!data) return;
 
+        const curRoom = getCurrentRoom();
+        const roomKey = getRoomFirebaseKey(curRoom);
+
         if (data.type === 'NEW_MSG' && !db) {
           const msg = data.msg;
-          if (msg.groupId === getCurrentRoom().id) {
+          if (msg.groupId === roomKey) {
             currentMessages.push(msg);
             renderSingleMessage(msg);
             scrollToBottom();
@@ -720,13 +736,14 @@
       function renderMembers() {
         membersList.innerHTML = '';
         const curRoom = getCurrentRoom();
+        const roomKey = getRoomFirebaseKey(curRoom);
 
         const displayName = appState.userName.trim() || 'メンバー';
         const myAvatar = displayName.charAt(0).toUpperCase();
         addAvatarBadge(myAvatar, `${displayName} (${appState.userStatus})`, true);
 
         Object.values(activeMembers).forEach(m => {
-          if (m.id !== myId && m.groupId === curRoom.id) {
+          if (m.id !== myId && m.groupId === roomKey) {
             addAvatarBadge(m.avatarLetter, `${m.name} (${m.status})`, true);
           }
         });
@@ -803,8 +820,9 @@
 
       window.deleteSingleMsg = function(msgId) {
         const curRoom = getCurrentRoom();
+        const roomKey = getRoomFirebaseKey(curRoom);
         if (db) {
-          db.ref(`rooms/${curRoom.id}/messages/${msgId}`).remove();
+          db.ref(`rooms/${roomKey}/messages/${msgId}`).remove();
         } else {
           currentMessages = currentMessages.filter(m => m.id !== msgId);
           renderMessages(currentMessages);
