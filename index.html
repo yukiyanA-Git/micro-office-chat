@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20260807_3">
+  <link rel="stylesheet" href="styles.css?v=20260807_4">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -370,19 +370,21 @@
         announcePresence();
       }
 
+      // 名前が未設定の場合でも "メンバー" として確実に既読を送信（ブロック完全防止）
       function markCurrentMessagesAsRead() {
         unreadCount = 0;
         updateBadgeUI();
 
         const curRoom = getCurrentRoom();
-        if (!curRoom || !db || !appState.userName) return;
+        if (!curRoom || !db) return;
 
+        const displayName = (appState.userName || '').trim() || 'メンバー';
         const roomKey = getRoomFirebaseKey(curRoom);
         const now = Date.now();
 
         db.ref(`rooms/${roomKey}/lastRead/${myId}`).set({
           userId: myId,
-          userName: appState.userName,
+          userName: displayName,
           readTime: now
         });
       }
@@ -578,7 +580,7 @@
             updateReadBadgesOnly();
           });
 
-          // 2. 【一括消去と同一最優先フラットノード監視】：最速リアルタイムPush
+          // 2. 最優先フラットノード監視（超高速Push受領）
           currentLatestMsgRef = db.ref(`rooms/${roomKey}/latestMsg`);
           currentLatestMsgRef.on('value', (snapshot) => {
             const latestObj = snapshot.val();
@@ -599,7 +601,6 @@
                 }
               }
             } else if (latestObj === null) {
-              // 一括消去時
               currentMessages = [];
               renderMessages([]);
             }
@@ -663,7 +664,7 @@
       function announcePresence() {
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
-        const displayName = appState.userName.trim() || 'メンバー';
+        const displayName = (appState.userName || '').trim() || 'メンバー';
         const avatar = displayName.charAt(0).toUpperCase();
 
         const roomKey = getRoomFirebaseKey(curRoom);
@@ -932,14 +933,13 @@
         });
       }
 
-      // 【一括消去と全く同じ最優先トップレベルノードへ同時書き込み！】
       function sendMessage({ text, stamp, file }) {
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
         const roomKey = getRoomFirebaseKey(curRoom);
         const purgeTime = curRoom.purgeTime || '00:00';
 
-        const displayName = appState.userName.trim() || 'メンバー';
+        const displayName = (appState.userName || '').trim() || 'メンバー';
         const avatar = displayName.charAt(0).toUpperCase();
         const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
         const nowMs = Date.now();
@@ -959,9 +959,7 @@
         };
 
         if (db) {
-          // 1. ログ保持用子ノード書き込み
           db.ref(`rooms/${roomKey}/messages/${msgId}`).set(msgObj);
-          // 2. 一括消去と全く同じ最優先フラットノード書き込み（超高速Push受領用）
           db.ref(`rooms/${roomKey}/latestMsg`).set(msgObj);
         } else {
           currentMessages.push(msgObj);
@@ -1036,7 +1034,7 @@
         const curRoom = getCurrentRoom();
         const roomKey = getRoomFirebaseKey(curRoom);
 
-        const displayName = appState.userName.trim() || 'メンバー';
+        const displayName = (appState.userName || '').trim() || 'メンバー';
         const myAvatar = displayName.charAt(0).toUpperCase();
         addAvatarBadge(myAvatar, `${displayName} (${appState.userStatus})`, true);
 
@@ -1065,6 +1063,7 @@
         scrollToBottom();
       }
 
+      // 【確実な既読バッジ計算】：端末間のミリ秒時刻ズレを吸収（60秒以内のタイムラグを完全許容）
       function updateReadBadgesOnly() {
         currentMessages.forEach(msg => {
           const msgElem = document.getElementById(`msg_${msg.id}`);
@@ -1078,7 +1077,8 @@
 
           Object.values(userLastReadTimes).forEach(readInfo => {
             if (readInfo && readInfo.userId !== (msg.senderId || '')) {
-              if (readInfo.userId !== myId && readInfo.readTime >= msgTime) {
+              // 端末同士のミリ秒ズレ（60秒前後の差）を吸収して既読としてカウント
+              if (readInfo.userId !== myId && (readInfo.readTime >= (msgTime - 60000))) {
                 readUserNames.push(readInfo.userName || '相手');
               }
             }
@@ -1132,7 +1132,7 @@
 
         Object.values(userLastReadTimes).forEach(readInfo => {
           if (readInfo && readInfo.userId !== (msg.senderId || '')) {
-            if (readInfo.userId !== myId && readInfo.readTime >= msgTime) {
+            if (readInfo.userId !== myId && (readInfo.readTime >= (msgTime - 60000))) {
               readUserNames.push(readInfo.userName || '相手');
             }
           }

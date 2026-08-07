@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="public/styles.css?v=20260807_3">
+  <link rel="stylesheet" href="public/styles.css?v=20260807_4">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -375,14 +375,15 @@
         updateBadgeUI();
 
         const curRoom = getCurrentRoom();
-        if (!curRoom || !db || !appState.userName) return;
+        if (!curRoom || !db) return;
 
+        const displayName = (appState.userName || '').trim() || 'メンバー';
         const roomKey = getRoomFirebaseKey(curRoom);
         const now = Date.now();
 
         db.ref(`rooms/${roomKey}/lastRead/${myId}`).set({
           userId: myId,
-          userName: appState.userName,
+          userName: displayName,
           readTime: now
         });
       }
@@ -571,14 +572,12 @@
           if (currentLastReadRef) currentLastReadRef.off();
           if (currentMembersRef) currentMembersRef.off();
 
-          // 1. 既読監視
           currentLastReadRef = db.ref(`rooms/${roomKey}/lastRead`);
           currentLastReadRef.on('value', (snapshot) => {
             userLastReadTimes = snapshot.val() || {};
             updateReadBadgesOnly();
           });
 
-          // 2. 【一括消去と同等最優先フラットノード監視】：最速リアルタイムPush
           currentLatestMsgRef = db.ref(`rooms/${roomKey}/latestMsg`);
           currentLatestMsgRef.on('value', (snapshot) => {
             const latestObj = snapshot.val();
@@ -599,13 +598,11 @@
                 }
               }
             } else if (latestObj === null) {
-              // 一括消去時
               currentMessages = [];
               renderMessages([]);
             }
           });
 
-          // 3. メッセージ全ログ監視
           currentSubscribedRef = db.ref(`rooms/${roomKey}/messages`).limitToLast(50);
           currentSubscribedRef.on('value', (snapshot) => {
             const data = snapshot.val();
@@ -650,7 +647,6 @@
             }
           });
 
-          // 4. メンバー監視
           currentMembersRef = db.ref(`rooms/${roomKey}/members`);
           currentMembersRef.on('value', (snapshot) => {
             const data = snapshot.val();
@@ -663,7 +659,7 @@
       function announcePresence() {
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
-        const displayName = appState.userName.trim() || 'メンバー';
+        const displayName = (appState.userName || '').trim() || 'メンバー';
         const avatar = displayName.charAt(0).toUpperCase();
 
         const roomKey = getRoomFirebaseKey(curRoom);
@@ -938,7 +934,7 @@
         const roomKey = getRoomFirebaseKey(curRoom);
         const purgeTime = curRoom.purgeTime || '00:00';
 
-        const displayName = appState.userName.trim() || 'メンバー';
+        const displayName = (appState.userName || '').trim() || 'メンバー';
         const avatar = displayName.charAt(0).toUpperCase();
         const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
         const nowMs = Date.now();
@@ -1033,7 +1029,7 @@
         const curRoom = getCurrentRoom();
         const roomKey = getRoomFirebaseKey(curRoom);
 
-        const displayName = appState.userName.trim() || 'メンバー';
+        const displayName = (appState.userName || '').trim() || 'メンバー';
         const myAvatar = displayName.charAt(0).toUpperCase();
         addAvatarBadge(myAvatar, `${displayName} (${appState.userStatus})`, true);
 
@@ -1075,7 +1071,7 @@
 
           Object.values(userLastReadTimes).forEach(readInfo => {
             if (readInfo && readInfo.userId !== (msg.senderId || '')) {
-              if (readInfo.userId !== myId && readInfo.readTime >= msgTime) {
+              if (readInfo.userId !== myId && (readInfo.readTime >= (msgTime - 60000))) {
                 readUserNames.push(readInfo.userName || '相手');
               }
             }
@@ -1129,7 +1125,7 @@
 
         Object.values(userLastReadTimes).forEach(readInfo => {
           if (readInfo && readInfo.userId !== (msg.senderId || '')) {
-            if (readInfo.userId !== myId && readInfo.readTime >= msgTime) {
+            if (readInfo.userId !== myId && (readInfo.readTime >= (msgTime - 60000))) {
               readUserNames.push(readInfo.userName || '相手');
             }
           }
