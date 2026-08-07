@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20260806_6">
+  <link rel="stylesheet" href="styles.css?v=20260807_1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -214,7 +214,7 @@
   </div>
 
   <script>
-    // 古い キャッシュ / ServiceWorker の強制消去
+    // 古い キャッシュ / ServiceWorker の強力無効化
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(registrations => {
         for (let registration of registrations) {
@@ -322,7 +322,9 @@
       let userLastReadTimes = {};
       let attachedFile = null;
       let currentMessages = [];
-      let activeFirebaseListenerKey = null;
+      let currentSubscribedRef = null;
+      let currentLastReadRef = null;
+      let currentMembersRef = null;
 
       if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
@@ -338,10 +340,11 @@
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       }
 
+      // 部屋のキー計算を超シンプル化（標準化）
       function getRoomFirebaseKey(room) {
-        if (!room) return 'room1_none';
-        const passcodeStr = (room.passcode || 'none').trim() || 'none';
-        return `${room.id}_${passcodeStr}`;
+        if (!room || !room.id) return 'room1';
+        const passcode = (room.passcode || '').trim();
+        return passcode ? `${room.id}_${passcode}` : room.id;
       }
 
       ['click', 'touchstart', 'focusin'].forEach(evtType => {
@@ -478,8 +481,9 @@
         if (!curRoom) return;
 
         currentRoomTitle.textContent = curRoom.name;
+        const roomKey = getRoomFirebaseKey(curRoom);
         if (roomKeyTag) {
-          roomKeyTag.textContent = `[ID:${curRoom.id}]`;
+          roomKeyTag.textContent = `[ID: ${roomKey}]`;
         }
 
         const colorMap = {
@@ -499,6 +503,7 @@
 
       let isInitialLoad = true;
 
+      // 【標準・最強】一番シンプルで間違いのないリアルタイムデータベース購読
       function subscribeCurrentRoom() {
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
@@ -511,78 +516,68 @@
         if (db) {
           db.goOnline();
 
-          if (activeFirebaseListenerKey) {
-            db.ref(`rooms/${activeFirebaseListenerKey}/messages`).off();
-            db.ref(`rooms/${activeFirebaseListenerKey}/members`).off();
-            db.ref(`rooms/${activeFirebaseListenerKey}/lastRead`).off();
-          }
+          // 旧リスナーの完全解除
+          if (currentSubscribedRef) currentSubscribedRef.off();
+          if (currentLastReadRef) currentLastReadRef.off();
+          if (currentMembersRef) currentMembersRef.off();
 
-          activeFirebaseListenerKey = roomKey;
-
-          // 1. 既読文字バッジのリアルタイム更新
-          db.ref(`rooms/${roomKey}/lastRead`).on('value', (snapshot) => {
+          // 1. 既読文字バッジ監視
+          currentLastReadRef = db.ref(`rooms/${roomKey}/lastRead`);
+          currentLastReadRef.on('value', (snapshot) => {
             userLastReadTimes = snapshot.val() || {};
             updateReadBadgesOnly();
           });
 
-          // 2. メッセージ受領
-          currentMessages = [];
-          chatTimeline.innerHTML = '<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>';
+          // 2. メッセージ監視（標準の limitToLast(50).on('value') で100%確実に同期）
+          currentSubscribedRef = db.ref(`rooms/${roomKey}/messages`).limitToLast(50);
+          currentSubscribedRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            let allMsgs = data ? Object.values(data) : [];
 
-          const msgQuery = db.ref(`rooms/${roomKey}/messages`).limitToLast(50);
+            allMsgs.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
 
-          msgQuery.on('child_added', (snapshot) => {
-            const msg = snapshot.val();
-            if (!msg) return;
+            const oldMsgIds = [];
+            const validSessionMsgs = [];
 
-            const msgSessionDate = msg.sessionDate || (msg.timestampMs ? getSessionDateString(new Date(msg.timestampMs), purgeTime) : null);
-            
-            if (msgSessionDate && msgSessionDate !== currentSessionDate) {
-              db.ref(`rooms/${roomKey}/messages/${msg.id}`).remove();
-              return;
+            allMsgs.forEach(m => {
+              const msgSessionDate = m.sessionDate || (m.timestampMs ? getSessionDateString(new Date(m.timestampMs), purgeTime) : null);
+              if (msgSessionDate && msgSessionDate !== currentSessionDate) {
+                oldMsgIds.push(m.id);
+              } else {
+                validSessionMsgs.push(m);
+              }
+            });
+
+            if (oldMsgIds.length > 0) {
+              oldMsgIds.forEach(id => {
+                db.ref(`rooms/${roomKey}/messages/${id}`).remove();
+              });
             }
 
-            if (currentMessages.some(m => m.id === msg.id)) return;
-
-            currentMessages.push(msg);
-            currentMessages.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
-
-            renderSingleMessage(msg);
-            scrollToBottom();
-
-            if (!isInitialLoad) {
-              if (msg.senderId !== myId && msg.senderName !== appState.userName) {
+            if (!isInitialLoad && validSessionMsgs.length > currentMessages.length) {
+              const latestMsg = validSessionMsgs[validSessionMsgs.length - 1];
+              if (latestMsg.senderId !== myId && latestMsg.senderName !== appState.userName) {
                 unreadCount++;
                 updateBadgeUI();
                 playNotificationSound();
-                showDesktopNotification(msg);
+                showDesktopNotification(latestMsg);
               } else {
                 playNotificationSound();
               }
             }
+            isInitialLoad = false;
+
+            currentMessages = validSessionMsgs;
+            renderMessages(currentMessages);
 
             if (document.visibilityState === 'visible') {
               markCurrentMessagesAsRead();
             }
           });
 
-          msgQuery.once('value', () => {
-            isInitialLoad = false;
-          });
-
-          db.ref(`rooms/${roomKey}/messages`).on('child_removed', (snapshot) => {
-            const removedMsg = snapshot.val();
-            if (!removedMsg) return;
-            currentMessages = currentMessages.filter(m => m.id !== removedMsg.id);
-            const elem = document.getElementById(`msg_${removedMsg.id}`);
-            if (elem) elem.remove();
-
-            if (currentMessages.length === 0) {
-              chatTimeline.innerHTML = '<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>';
-            }
-          });
-
-          db.ref(`rooms/${roomKey}/members`).on('value', (snapshot) => {
+          // 3. メンバー監視
+          currentMembersRef = db.ref(`rooms/${roomKey}/members`);
+          currentMembersRef.on('value', (snapshot) => {
             const data = snapshot.val();
             activeMembers = data || {};
             renderMembers();
@@ -980,6 +975,16 @@
         membersList.appendChild(badge);
       }
 
+      function renderMessages(messages) {
+        chatTimeline.innerHTML = '';
+        if (messages.length === 0) {
+          chatTimeline.innerHTML = `<div class="timeline-empty-notice">💬 まだメッセージはありません。<br>下のクイックボタンで声を掛けましょう！</div>`;
+          return;
+        }
+        messages.forEach(m => renderSingleMessage(m));
+        scrollToBottom();
+      }
+
       function updateReadBadgesOnly() {
         currentMessages.forEach(msg => {
           const msgElem = document.getElementById(`msg_${msg.id}`);
@@ -1021,8 +1026,6 @@
         const notice = chatTimeline.querySelector('.timeline-empty-notice');
         if (notice) notice.remove();
 
-        if (document.getElementById(`msg_${msg.id}`)) return;
-
         const item = document.createElement('div');
         item.className = 'msg-item';
         item.id = `msg_${msg.id}`;
@@ -1034,7 +1037,6 @@
           bodyContent = `<div class="msg-text">${escapeHTML(msg.text)}</div>`;
         }
 
-        // 安全なファイル画像チェック（JavaScriptエラー防止）
         if (msg.file && msg.file.type) {
           if (typeof msg.file.type === 'string' && msg.file.type.startsWith('image/')) {
             bodyContent += `<div style="margin-top:4px;"><img src="${msg.file.data}" style="max-width:100%; border-radius:4px;" /></div>`;
