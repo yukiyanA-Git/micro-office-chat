@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="public/styles.css?v=20260807_7">
+  <link rel="stylesheet" href="public/styles.css?v=20260807_8">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -103,6 +103,11 @@
       </form>
     </footer>
 
+  </div>
+
+  <!-- 【🖼️ 画像拡大 ライトボックス モーダル】 -->
+  <div class="lightbox-overlay" id="lightboxModal" style="display: none;">
+    <img src="" id="lightboxImg" class="lightbox-img" alt="拡大プレビュー">
   </div>
 
   <!-- 【⚙️ 設定モーダル】：現在の部屋の編集・確認 -->
@@ -284,6 +289,9 @@
       const fileNameDisplay = document.getElementById('fileNameDisplay');
       const removeFileBtn = document.getElementById('removeFileBtn');
       const quickStampsArea = document.getElementById('quickStampsArea');
+
+      const lightboxModal = document.getElementById('lightboxModal');
+      const lightboxImg = document.getElementById('lightboxImg');
 
       const configModal = document.getElementById('configModal');
       const userNameInput = document.getElementById('userNameInput');
@@ -1153,6 +1161,23 @@
         });
       }
 
+      function linkifyText(text) {
+        if (!text) return '';
+        const escaped = escapeHTML(text);
+        const urlPattern = /(https?:\/\/[^\s]+)/g;
+        return escaped.replace(urlPattern, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
+      }
+
+      window.openLightbox = function(src) {
+        lightboxImg.src = src;
+        lightboxModal.style.display = 'flex';
+      };
+
+      lightboxModal.addEventListener('click', () => {
+        lightboxModal.style.display = 'none';
+        lightboxImg.src = '';
+      });
+
       function renderSingleMessage(msg) {
         const notice = chatTimeline.querySelector('.timeline-empty-notice');
         if (notice) notice.remove();
@@ -1170,14 +1195,29 @@
         if (msg.stamp) {
           bodyContent = `<div class="msg-stamp">${escapeHTML(msg.stamp)}</div>`;
         } else if (msg.text) {
-          bodyContent = `<div class="msg-text">${escapeHTML(msg.text)}</div>`;
+          bodyContent = `<div class="msg-text">${linkifyText(msg.text)}</div>`;
         }
 
-        if (msg.file && msg.file.type) {
-          if (typeof msg.file.type === 'string' && msg.file.type.startsWith('image/')) {
-            bodyContent += `<div style="margin-top:4px;"><img src="${msg.file.data}" style="max-width:100%; border-radius:4px;" /></div>`;
+        if (msg.file && msg.file.data) {
+          const fileName = msg.file.name || '添付ファイル';
+          const fileType = (msg.file.type || '').toLowerCase();
+          
+          if (fileType.startsWith('image/')) {
+            bodyContent += `<div style="margin-top:4px;"><img src="${msg.file.data}" class="attached-image-thumb" onclick="openLightbox('${msg.file.data}')" title="クリックで拡大表示" /></div>`;
           } else {
-            bodyContent += `<div style="margin-top:4px;"><a href="${msg.file.data}" download="${msg.file.name}" style="color:#818cf8; font-size:11px;">💾 ${escapeHTML(msg.file.name)}</a></div>`;
+            let fileIcon = '💾';
+            if (fileName.match(/\.(xlsx|xls|csv)$/i)) fileIcon = '📊';
+            else if (fileName.match(/\.(docx|doc|txt)$/i)) fileIcon = '📝';
+            else if (fileName.match(/\.pdf$/i)) fileIcon = '📄';
+            else if (fileName.match(/\.(zip|rar|7z)$/i)) fileIcon = '📦';
+
+            bodyContent += `
+              <div style="margin-top:4px;">
+                <a href="${msg.file.data}" download="${escapeHTML(fileName)}" class="attached-file-box" title="クリックしてダウンロード・開く">
+                  <span>${fileIcon} ${escapeHTML(fileName)}</span>
+                  <span style="font-size:9px; opacity:0.8; margin-left:4px;">[開く/保存]</span>
+                </a>
+              </div>`;
           }
         }
 
