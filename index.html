@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20260807_6">
+  <link rel="stylesheet" href="styles.css?v=20260807_7">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -108,11 +108,18 @@
   <!-- 【⚙️ 設定モーダル】：現在の部屋の編集・確認 -->
   <div class="modal-overlay" id="configModal" style="display: none;">
     <div class="modal-card">
-      <h3>⚙️ 設定 ＆ 部屋の編集</h3>
+      <h3>⚙️ 設定 ＆ ユーザープロフィール</h3>
+      
       <div class="form-group">
-        <label for="userNameInput">あなたの表示名 (苗字):</label>
-        <input type="text" id="userNameInput" placeholder="例: 苗字または名前を入力">
-        <small>※先頭の1文字（例: 「山」）がアバターになります。</small>
+        <label for="userNameInput">氏名 (フルネーム/苗字):</label>
+        <input type="text" id="userNameInput" placeholder="例: 河合 雅">
+        <small>※メンバー一覧のマウスオーバー時などに表示されます。</small>
+      </div>
+
+      <div class="form-group">
+        <label for="userAvatarCharInput">アイコン表示文字 (1文字):</label>
+        <input type="text" id="userAvatarCharInput" maxlength="2" placeholder="例: 雅 または K" style="width:100px;">
+        <small>※アイコンの中に表示する好きな1文字（空欄の場合は氏名の頭文字）。</small>
       </div>
 
       <div class="form-group">
@@ -280,6 +287,7 @@
 
       const configModal = document.getElementById('configModal');
       const userNameInput = document.getElementById('userNameInput');
+      const userAvatarCharInput = document.getElementById('userAvatarCharInput');
       const avatarShapeOptions = document.getElementById('avatarShapeOptions');
       const editRoomSectionTitle = document.getElementById('editRoomSectionTitle');
       const editRoomNameInput = document.getElementById('editRoomNameInput');
@@ -314,6 +322,7 @@
       if (!appState) {
         appState = {
           userName: '',
+          userAvatarChar: '',
           userStatus: '🟢 在席',
           activeRoomId: 'room1',
           avatarShape: 'shape-circle',
@@ -372,7 +381,7 @@
       window.addEventListener('focus', () => handleMobileResume());
       window.addEventListener('pageshow', () => handleMobileResume());
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
+        if (document.visibilityState === 'visible' && document.hasFocus()) {
           handleMobileResume();
         }
       });
@@ -386,7 +395,10 @@
         announcePresence();
       }
 
+      // 【アクティブ時のみ既読送信】：非アクティブ時・他の作業中は既読送信をガード
       function markCurrentMessagesAsRead() {
+        if (document.hidden || !document.hasFocus()) return; // 👈 非アクティブ時は既読を送信しない
+
         unreadCount = 0;
         updateBadgeUI();
 
@@ -421,7 +433,8 @@
       }
 
       function init() {
-        userNameInput.value = appState.userName;
+        userNameInput.value = appState.userName || '';
+        userAvatarCharInput.value = appState.userAvatarChar || '';
         myStatusSelect.value = appState.userStatus;
         updateRoomSelectorUI();
         applyPinState(appState.isPinned);
@@ -663,7 +676,7 @@
             currentMessages = validSessionMsgs;
             renderMessages(currentMessages);
 
-            if (document.visibilityState === 'visible') {
+            if (document.visibilityState === 'visible' && document.hasFocus()) {
               markCurrentMessagesAsRead();
             }
           });
@@ -681,7 +694,8 @@
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
         const displayName = (appState.userName || '').trim() || 'メンバー';
-        const avatar = displayName.charAt(0).toUpperCase();
+        const customAvatarChar = (appState.userAvatarChar || '').trim();
+        const avatar = customAvatarChar ? customAvatarChar.charAt(0) : displayName.charAt(0).toUpperCase();
 
         const roomKey = getRoomFirebaseKey(curRoom);
 
@@ -747,7 +761,8 @@
       });
 
       function openConfigModal() {
-        userNameInput.value = appState.userName;
+        userNameInput.value = appState.userName || '';
+        userAvatarCharInput.value = appState.userAvatarChar || '';
         selectedAvatarShape = appState.avatarShape || 'shape-circle';
         avatarShapeOptions.querySelectorAll('.shape-option-btn').forEach(btn => {
           if (btn.dataset.shape === selectedAvatarShape) btn.classList.add('active');
@@ -778,6 +793,7 @@
 
       closeConfigModalBtn.addEventListener('click', () => {
         appState.userName = userNameInput.value.trim();
+        appState.userAvatarChar = userAvatarCharInput.value.trim();
         saveState();
         configModal.style.display = 'none';
         announcePresence();
@@ -811,6 +827,7 @@
         curRoom.color = selectedEditColorTheme;
 
         appState.userName = userNameInput.value.trim();
+        appState.userAvatarChar = userAvatarCharInput.value.trim();
 
         saveState();
         updateRoomSelectorUI();
@@ -972,7 +989,9 @@
         const purgeTime = curRoom.purgeTime || '00:00';
 
         const displayName = (appState.userName || '').trim() || 'メンバー';
-        const avatar = displayName.charAt(0).toUpperCase();
+        const customAvatarChar = (appState.userAvatarChar || '').trim();
+        const avatar = customAvatarChar ? customAvatarChar.charAt(0) : displayName.charAt(0).toUpperCase();
+
         const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
         const nowMs = Date.now();
 
@@ -1068,7 +1087,8 @@
         const roomKey = getRoomFirebaseKey(curRoom);
 
         const displayName = (appState.userName || '').trim() || 'メンバー';
-        const myAvatar = displayName.charAt(0).toUpperCase();
+        const customAvatarChar = (appState.userAvatarChar || '').trim();
+        const myAvatar = customAvatarChar ? customAvatarChar.charAt(0) : displayName.charAt(0).toUpperCase();
         addAvatarBadge(myAvatar, `${displayName} (${appState.userStatus})`, true, selectedAvatarShape);
 
         Object.values(activeMembers).forEach(m => {
