@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="public/styles.css?v=20260807_1">
+  <link rel="stylesheet" href="styles.css?v=20260807_2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -345,8 +345,11 @@
         return passcode ? `${room.id}_${passcode}` : room.id;
       }
 
-      ['click', 'touchstart', 'focusin'].forEach(evtType => {
-        chatContainer.addEventListener(evtType, markCurrentMessagesAsRead, { passive: true });
+      ['click', 'touchstart', 'focusin', 'pointerdown', 'scroll'].forEach(evtType => {
+        chatContainer.addEventListener(evtType, () => {
+          markCurrentMessagesAsRead();
+          fetchLatestMessagesManual();
+        }, { passive: true });
       });
 
       window.addEventListener('focus', () => handleMobileResume());
@@ -361,6 +364,7 @@
         if (db) {
           db.goOnline();
         }
+        fetchLatestMessagesManual();
         markCurrentMessagesAsRead();
         announcePresence();
       }
@@ -407,6 +411,57 @@
         subscribeCurrentRoom();
         announcePresence();
         bindStampButtons();
+        startAutoSyncTimer();
+      }
+
+      // 【ブレイクスルー】：スマホがバックグラウンド/スリープでWebSocketを切断しても、2.5秒ごとに自動フェッチ
+      function startAutoSyncTimer() {
+        setInterval(() => {
+          if (db) {
+            db.goOnline();
+          }
+          fetchLatestMessagesManual();
+        }, 2500);
+      }
+
+      // 自動/手動共通：最新メッセージの速攻フェッチ処理
+      function fetchLatestMessagesManual() {
+        const curRoom = getCurrentRoom();
+        if (!curRoom || !db) return;
+        const roomKey = getRoomFirebaseKey(curRoom);
+        const purgeTime = curRoom.purgeTime || '00:00';
+        const currentSessionDate = getSessionDateString(new Date(), purgeTime);
+
+        db.ref(`rooms/${roomKey}/messages`).limitToLast(50).get().then((snapshot) => {
+          if (!snapshot.exists()) return;
+          const data = snapshot.val();
+          let allMsgs = data ? Object.values(data) : [];
+          allMsgs.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
+
+          const validSessionMsgs = allMsgs.filter(m => {
+            const msgSessionDate = m.sessionDate || (m.timestampMs ? getSessionDateString(new Date(m.timestampMs), purgeTime) : null);
+            return !msgSessionDate || msgSessionDate === currentSessionDate;
+          });
+
+          // 件数または最新メッセージIDに変化があれば画面書き換え
+          const isChanged = (validSessionMsgs.length !== currentMessages.length) ||
+                            (validSessionMsgs.length > 0 && currentMessages.length > 0 &&
+                             validSessionMsgs[validSessionMsgs.length - 1].id !== currentMessages[currentMessages.length - 1].id);
+
+          if (isChanged) {
+            if (currentMessages.length > 0 && validSessionMsgs.length > currentMessages.length) {
+              const latestMsg = validSessionMsgs[validSessionMsgs.length - 1];
+              if (latestMsg.senderId !== myId && latestMsg.senderName !== appState.userName) {
+                unreadCount++;
+                updateBadgeUI();
+                playNotificationSound();
+                showDesktopNotification(latestMsg);
+              }
+            }
+            currentMessages = validSessionMsgs;
+            renderMessages(currentMessages);
+          }
+        }).catch(() => {});
       }
 
       function saveState() {
