@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="public/styles.css?v=20260807_4">
+  <link rel="stylesheet" href="public/styles.css?v=20260807_5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -113,6 +113,16 @@
         <label for="userNameInput">あなたの表示名 (苗字):</label>
         <input type="text" id="userNameInput" placeholder="例: 苗字または名前を入力">
         <small>※先頭の1文字（例: 「山」）がアバターになります。</small>
+      </div>
+
+      <div class="form-group">
+        <label>🔷 アバターの形状 (アイコンの形):</label>
+        <div class="shape-picker-options" id="avatarShapeOptions" style="display:flex; gap:8px; margin-top:4px;">
+          <button type="button" class="small-btn shape-option-btn active" data-shape="shape-circle" title="〇 丸型">〇 丸</button>
+          <button type="button" class="small-btn shape-option-btn" data-shape="shape-square" title="□ 四角型">□ 四角</button>
+          <button type="button" class="small-btn shape-option-btn" data-shape="shape-hexagon" title="⬡ 六角型">⬡ 六角</button>
+          <button type="button" class="small-btn shape-option-btn" data-shape="shape-diamond" title="◆ ダイヤ型">◆ ダイヤ</button>
+        </div>
       </div>
 
       <hr>
@@ -270,6 +280,7 @@
 
       const configModal = document.getElementById('configModal');
       const userNameInput = document.getElementById('userNameInput');
+      const avatarShapeOptions = document.getElementById('avatarShapeOptions');
       const editRoomSectionTitle = document.getElementById('editRoomSectionTitle');
       const editRoomNameInput = document.getElementById('editRoomNameInput');
       const editRoomIdInput = document.getElementById('editRoomIdInput');
@@ -290,6 +301,7 @@
       const closeAddRoomModalBtn = document.getElementById('closeAddRoomModalBtn');
 
       let selectedEditColorTheme = 'indigo';
+      let selectedAvatarShape = 'shape-circle';
       let isSoundEnabled = true;
       let unreadCount = 0;
 
@@ -304,12 +316,16 @@
           userName: '',
           userStatus: '🟢 在席',
           activeRoomId: 'room1',
+          avatarShape: 'shape-circle',
           rooms: [
             { id: 'room1', name: 'トークルーム1', passcode: '', color: 'indigo', purgeTime: '00:00' }
           ],
           isPinned: false
         };
       }
+
+      if (!appState.avatarShape) appState.avatarShape = 'shape-circle';
+      selectedAvatarShape = appState.avatarShape;
 
       let myId = localStorage.getItem('micro_office_chat_uid');
       if (!myId) {
@@ -464,6 +480,7 @@
       }
 
       function saveState() {
+        appState.avatarShape = selectedAvatarShape;
         localStorage.setItem('micro_office_chat_state', JSON.stringify(appState));
       }
 
@@ -669,6 +686,7 @@
           name: displayName,
           avatarLetter: avatar,
           status: appState.userStatus,
+          avatarShape: selectedAvatarShape,
           groupId: roomKey,
           timestamp: Date.now()
         };
@@ -716,8 +734,21 @@
 
       configBtn.addEventListener('click', () => openConfigModal());
 
+      avatarShapeOptions.addEventListener('click', (e) => {
+        if (e.target.classList.contains('shape-option-btn')) {
+          avatarShapeOptions.querySelectorAll('.shape-option-btn').forEach(btn => btn.classList.remove('active'));
+          e.target.classList.add('active');
+          selectedAvatarShape = e.target.dataset.shape;
+        }
+      });
+
       function openConfigModal() {
         userNameInput.value = appState.userName;
+        selectedAvatarShape = appState.avatarShape || 'shape-circle';
+        avatarShapeOptions.querySelectorAll('.shape-option-btn').forEach(btn => {
+          if (btn.dataset.shape === selectedAvatarShape) btn.classList.add('active');
+          else btn.classList.remove('active');
+        });
 
         const curRoom = getCurrentRoom();
         if (curRoom) {
@@ -746,6 +777,7 @@
         saveState();
         configModal.style.display = 'none';
         announcePresence();
+        renderMessages(currentMessages);
       });
 
       editColorPickerOptions.addEventListener('click', (e) => {
@@ -783,6 +815,7 @@
 
         subscribeCurrentRoom();
         announcePresence();
+        renderMessages(currentMessages);
       });
 
       addRoomBtn.addEventListener('click', () => openAddRoomModal());
@@ -944,6 +977,7 @@
           senderId: myId,
           senderName: displayName,
           avatarLetter: avatar,
+          avatarShape: selectedAvatarShape,
           text: text || '',
           stamp: stamp || null,
           file: file || null,
@@ -1031,18 +1065,19 @@
 
         const displayName = (appState.userName || '').trim() || 'メンバー';
         const myAvatar = displayName.charAt(0).toUpperCase();
-        addAvatarBadge(myAvatar, `${displayName} (${appState.userStatus})`, true);
+        addAvatarBadge(myAvatar, `${displayName} (${appState.userStatus})`, true, selectedAvatarShape);
 
         Object.values(activeMembers).forEach(m => {
           if (m.id !== myId && m.groupId === roomKey) {
-            addAvatarBadge(m.avatarLetter, `${m.name} (${m.status})`, true);
+            addAvatarBadge(m.avatarLetter, `${m.name} (${m.status})`, true, m.avatarShape || 'shape-circle');
           }
         });
       }
 
-      function addAvatarBadge(letter, titleText, isOnline) {
+      function addAvatarBadge(letter, titleText, isOnline, shapeClass) {
         const badge = document.createElement('div');
-        badge.className = `avatar-badge ${isOnline ? 'online' : ''}`;
+        const shape = shapeClass || 'shape-circle';
+        badge.className = `avatar-badge ${shape} ${isOnline ? 'online' : ''}`;
         badge.textContent = letter;
         badge.title = titleText;
         membersList.appendChild(badge);
@@ -1101,8 +1136,11 @@
 
         if (document.getElementById(`msg_${msg.id}`)) return;
 
+        const isSelf = (msg.senderId === myId);
+        const shapeClass = isSelf ? selectedAvatarShape : (msg.avatarShape || 'shape-circle');
+
         const item = document.createElement('div');
-        item.className = 'msg-item';
+        item.className = `msg-item ${isSelf ? 'self-msg' : ''}`;
         item.id = `msg_${msg.id}`;
 
         let bodyContent = '';
@@ -1139,11 +1177,13 @@
           readBadgeHTML = `<div class="msg-read-status" title="既読: ${escapeHTML(names)}">👀 既読 ${readCount}</div>`;
         }
 
+        const selfBadgeHTML = isSelf ? `<span class="self-badge">自分</span>` : '';
+
         item.innerHTML = `
-          <div class="msg-avatar">${escapeHTML(msg.avatarLetter)}</div>
+          <div class="msg-avatar ${shapeClass}">${escapeHTML(msg.avatarLetter)}</div>
           <div class="msg-body">
             <div class="msg-header">
-              <span class="msg-sender">${escapeHTML(msg.senderName)}</span>
+              <span class="msg-sender">${escapeHTML(msg.senderName)}${selfBadgeHTML}</span>
               <span class="msg-time">${msg.timestamp}</span>
             </div>
             ${bodyContent}
