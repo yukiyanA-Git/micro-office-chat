@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="public/styles.css?v=20260807_5">
+  <link rel="stylesheet" href="public/styles.css?v=20260807_6">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -1177,19 +1177,16 @@
           readBadgeHTML = `<div class="msg-read-status" title="既読: ${escapeHTML(names)}">👀 既読 ${readCount}</div>`;
         }
 
-        const selfBadgeHTML = isSelf ? `<span class="self-badge">自分</span>` : '';
-
         item.innerHTML = `
-          <div class="msg-avatar ${shapeClass}">${escapeHTML(msg.avatarLetter)}</div>
+          <div class="msg-avatar ${shapeClass}" title="${escapeHTML(msg.senderName)}">${escapeHTML(msg.avatarLetter)}</div>
           <div class="msg-body">
-            <div class="msg-header">
-              <span class="msg-sender">${escapeHTML(msg.senderName)}${selfBadgeHTML}</span>
-              <span class="msg-time">${msg.timestamp}</span>
-            </div>
             ${bodyContent}
             <div class="msg-footer-info">
               ${readBadgeHTML}
-              <button class="msg-delete-btn" onclick="deleteSingleMsg('${msg.id}')" title="削除">✕</button>
+              <div class="msg-footer-right">
+                <span class="msg-time">${msg.timestamp}</span>
+                <button class="msg-delete-btn" onclick="deleteSingleMsg('${msg.id}')" title="削除">✕</button>
+              </div>
             </div>
           </div>
         `;
@@ -1231,7 +1228,7 @@
       }
 
       function escapeHTML(str) {
-        return (str || '').replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+        return (str || '').replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;'>: '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
       }
 
       init();
