@@ -550,9 +550,13 @@
         if (!curRoom) return;
 
         currentRoomTitle.textContent = curRoom.name;
-        const roomKey = getRoomFirebaseKey(curRoom);
         if (roomKeyTag) {
-          roomKeyTag.textContent = `[ID: ${roomKey}]`;
+          const passcodeStr = (curRoom.passcode || '').trim();
+          if (passcodeStr) {
+            roomKeyTag.textContent = `[ID: ${curRoom.id} | 合言葉: ${passcodeStr}]`;
+          } else {
+            roomKeyTag.textContent = `[ID: ${curRoom.id}]`;
+          }
         }
 
         const colorMap = {
