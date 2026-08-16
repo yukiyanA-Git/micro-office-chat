@@ -9,15 +9,13 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20260816_1">
+  <link rel="stylesheet" href="styles.css?v=20260817_2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <!-- Firebase SDKs (v9 Compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <!-- PeerJS WebRTC Library -->
-  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 </head>
 <body>
 
@@ -32,10 +30,10 @@
         <span id="roomKeyTag" style="font-size:8px; opacity:0.6; margin-left:4px; font-weight:normal;"></span>
       </div>
       <div class="header-actions">
-        <button id="vcToggleBtn" class="vc-join-btn" title="ルーム別ボイスチャットに参加">🎤 VC</button>
+        <button id="vcToggleBtn" class="vc-join-btn" title="ルーム別ボイスチャットに参加">🎤 VC参加</button>
         <button id="soundToggleBtn" class="icon-btn active" title="通知音 (ON/OFF)">🔊</button>
         <button id="pinBtn" class="icon-btn" title="最前面にピン留め (ON/OFF)">📌</button>
-        <button id="configBtn" class="icon-btn" title="現在の部屋の設定・変更">⚙️</button>
+        <button id="configBtn" class="icon-btn" title="現在の部屋の設定・音量調整">⚙️</button>
         <button id="popoutBtn" class="icon-btn" title="小窓ポップアップ表示">↗️</button>
       </div>
     </header>
@@ -55,18 +53,18 @@
       <div class="members-list" id="membersList"></div>
     </section>
 
-    <!-- 🎙️ ボイスチャット (VC) コントロールバー (参加時のみ表示) -->
+    <!-- 🎙️ ボイスチャット (VC) コントロールバー (VC参加中のみ表示) -->
     <section class="vc-bar" id="vcControlBar" style="display: none;">
       <div style="display:flex; align-items:center; gap:4px;">
         <span style="color:#10b981; font-weight:bold;">🟢 VC接続中</span>
-        <button id="vcMuteBtn" class="small-btn" style="padding:2px 6px;" title="マイクMute切替">🎙️ ON</button>
+        <button id="vcMuteBtn" class="small-btn" style="padding:2px 6px;" title="マイクMute切替">🎙️ マイクON</button>
       </div>
       <div class="vc-controls">
-        <div class="vc-slider-group" title="マイク入力マスター音量">
+        <div class="vc-slider-group" title="マイク入力音量">
           <span>🎤入力</span>
           <input type="range" id="vcInputVol" min="0" max="150" value="100">
         </div>
-        <div class="vc-slider-group" title="スピーカー出力マスター音量">
+        <div class="vc-slider-group" title="スピーカー出力音量">
           <span>🔊出力</span>
           <input type="range" id="vcOutputVol" min="0" max="100" value="100">
         </div>
@@ -132,10 +130,10 @@
     <img src="" id="lightboxImg" class="lightbox-img" alt="拡大プレビュー">
   </div>
 
-  <!-- 【⚙️ 設定モーダル】：現在の部屋の編集・確認 -->
+  <!-- 【⚙️ 設定モーダル】：ユーザー設定 ＆ 音量マスター調整 ＆ 部屋管理 -->
   <div class="modal-overlay" id="configModal" style="display: none;">
     <div class="modal-card">
-      <h3>⚙️ 設定 ＆ ユーザープロフィール</h3>
+      <h3>⚙️ 設定 ＆ 音量マスター調整</h3>
       
       <div class="form-group">
         <label for="userNameInput">氏名 (フルネーム/苗字):</label>
@@ -157,6 +155,19 @@
           <button type="button" class="small-btn shape-option-btn" data-shape="shape-hexagon" title="⬡ 六角型">⬡ 六角</button>
           <button type="button" class="small-btn shape-option-btn" data-shape="shape-diamond" title="◆ ダイヤ型">◆ ダイヤ</button>
         </div>
+      </div>
+
+      <hr>
+
+      <!-- 🎙️ ボイスチャット (VC) 音量マスター調整セクション -->
+      <h4>🎙️ ボイスチャット (VC) Master 音量設定</h4>
+      <div class="form-group">
+        <label for="configVcInputVol">🎤 マイク入力マスター音量: <span id="configVcInputVolVal">100%</span></label>
+        <input type="range" id="configVcInputVol" min="0" max="150" value="100" style="width:100%;">
+      </div>
+      <div class="form-group">
+        <label for="configVcOutputVol">🔊 スピーカー出力マスター音量: <span id="configVcOutputVolVal">100%</span></label>
+        <input type="range" id="configVcOutputVol" min="0" max="100" value="100" style="width:100%;">
       </div>
 
       <hr>
@@ -320,6 +331,11 @@
       const vcOutputVol = document.getElementById('vcOutputVol');
       const vcLeaveBtn = document.getElementById('vcLeaveBtn');
 
+      const configVcInputVol = document.getElementById('configVcInputVol');
+      const configVcInputVolVal = document.getElementById('configVcInputVolVal');
+      const configVcOutputVol = document.getElementById('configVcOutputVol');
+      const configVcOutputVolVal = document.getElementById('configVcOutputVolVal');
+
       const lightboxModal = document.getElementById('lightboxModal');
       const lightboxImg = document.getElementById('lightboxImg');
 
@@ -364,6 +380,8 @@
           userStatus: '🟢 在席',
           activeRoomId: 'room1',
           avatarShape: 'shape-circle',
+          vcInputVol: 100,
+          vcOutputVol: 100,
           rooms: [
             { id: 'room1', name: 'トークルーム1', passcode: '', color: 'indigo', purgeTime: '00:00' }
           ],
@@ -372,6 +390,8 @@
       }
 
       if (!appState.avatarShape) appState.avatarShape = 'shape-circle';
+      if (appState.vcInputVol === undefined) appState.vcInputVol = 100;
+      if (appState.vcOutputVol === undefined) appState.vcOutputVol = 100;
       selectedAvatarShape = appState.avatarShape;
 
       let myId = localStorage.getItem('micro_office_chat_uid');
@@ -389,41 +409,72 @@
       let currentLastReadRef = null;
       let currentMembersRef = null;
 
-      // ==========================================
-      // 🎙️ ボイスチャット (VC) WebRTC エンジン
-      // ==========================================
-      let peer = null;
+      // =========================================================
+      // 🎙️ ピュア WebRTC ＋ Firebase Signaling ボイスチャット
+      // =========================================================
       let localStream = null;
       let isVcConnected = false;
       let isMicMuted = false;
-      let peerCalls = {};
+      let rtcConnections = {}; // peerId -> RTCPeerConnection
       let remoteAudioElements = {};
       let vcMembersRef = null;
+      let vcSignalsRef = null;
       let vcMembers = {};
       let audioCtx = null;
       let inputGainNode = null;
       let outputGainNode = null;
       let localAnalyser = null;
 
+      const rtcConfig = {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      };
+
       function initWebAudio() {
         if (!audioCtx) {
           audioCtx = new (window.AudioContext || window.webkitAudioContext)();
           inputGainNode = audioCtx.createGain();
           outputGainNode = audioCtx.createGain();
-          inputGainNode.gain.value = (parseFloat(vcInputVol.value) || 100) / 100;
-          outputGainNode.gain.value = (parseFloat(vcOutputVol.value) || 100) / 100;
+          inputGainNode.gain.value = (parseFloat(appState.vcInputVol) || 100) / 100;
+          outputGainNode.gain.value = (parseFloat(appState.vcOutputVol) || 100) / 100;
         }
         if (audioCtx.state === 'suspended') {
           audioCtx.resume();
         }
       }
 
+      function syncVolumeSliders(valInput, valOutput) {
+        vcInputVol.value = valInput;
+        configVcInputVol.value = valInput;
+        configVcInputVolVal.textContent = valInput + '%';
+
+        vcOutputVol.value = valOutput;
+        configVcOutputVol.value = valOutput;
+        configVcOutputVolVal.textContent = valOutput + '%';
+
+        appState.vcInputVol = valInput;
+        appState.vcOutputVol = valOutput;
+        saveState();
+
+        if (inputGainNode) inputGainNode.gain.value = valInput / 100;
+        if (outputGainNode) outputGainNode.gain.value = valOutput / 100;
+
+        Object.values(remoteAudioElements).forEach(audio => {
+          audio.volume = Math.min(1.0, valOutput / 100);
+        });
+      }
+
+      vcInputVol.addEventListener('input', (e) => syncVolumeSliders(e.target.value, vcOutputVol.value));
+      configVcInputVol.addEventListener('input', (e) => syncVolumeSliders(e.target.value, vcOutputVol.value));
+
+      vcOutputVol.addEventListener('input', (e) => syncVolumeSliders(vcInputVol.value, e.target.value));
+      configVcOutputVol.addEventListener('input', (e) => syncVolumeSliders(vcInputVol.value, e.target.value));
+
       vcToggleBtn.addEventListener('click', () => {
-        if (isVcConnected) {
-          leaveVc();
-        } else {
-          joinVc();
-        }
+        if (isVcConnected) leaveVc();
+        else joinVc();
       });
 
       vcMuteBtn.addEventListener('click', () => {
@@ -435,23 +486,10 @@
           vcMuteBtn.style.background = '#f43f5e';
           vcMuteBtn.style.color = '#ffffff';
         } else {
-          vcMuteBtn.textContent = '🎙️ ON';
+          vcMuteBtn.textContent = '🎙️ マイクON';
           vcMuteBtn.style.background = '';
           vcMuteBtn.style.color = '';
         }
-      });
-
-      vcInputVol.addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value) / 100;
-        if (inputGainNode) inputGainNode.gain.value = val;
-      });
-
-      vcOutputVol.addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value) / 100;
-        if (outputGainNode) outputGainNode.gain.value = val;
-        Object.values(remoteAudioElements).forEach(audio => {
-          audio.volume = Math.min(1.0, val);
-        });
       });
 
       vcLeaveBtn.addEventListener('click', () => leaveVc());
@@ -465,11 +503,10 @@
         try {
           localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         } catch (err) {
-          alert('マイクのアクセスが拒否されたか、マイクが見つかりません。');
+          alert('マイクの許可が得られなかったか、マイクデバイスが見つかりません。');
           return;
         }
 
-        // Web Audio API によるマイク感度ゲイン接続
         try {
           const source = audioCtx.createMediaStreamSource(localStream);
           localAnalyser = audioCtx.createAnalyser();
@@ -478,85 +515,145 @@
           startSpeakingDetector();
         } catch (e) {}
 
-        const peerIdStr = `deskchat_${roomKey}_${myId}`;
-        
-        peer = new Peer(peerIdStr, {
-          debug: 0
-        });
+        isVcConnected = true;
+        vcToggleBtn.classList.add('active');
+        vcToggleBtn.textContent = '🎙️ VC接続中';
+        vcControlBar.style.display = 'flex';
 
-        peer.on('open', (id) => {
-          isVcConnected = true;
-          vcToggleBtn.classList.add('active');
-          vcToggleBtn.textContent = '🎙️ VC接続中';
-          vcControlBar.style.display = 'flex';
-
-          if (db) {
-            db.ref(`rooms/${roomKey}/vc_members/${myId}`).set({
-              userId: myId,
-              peerId: id,
-              name: appState.userName || 'メンバー',
-              joinedAt: Date.now()
-            });
-            db.ref(`rooms/${roomKey}/vc_members/${myId}`).onDisconnect().remove();
-          }
-
-          // 他の既に参加しているメンバーへ発信
-          connectToOtherVcPeers(roomKey);
-        });
-
-        // 着信の受領
-        peer.on('call', (call) => {
-          call.answer(localStream);
-          handlePeerStream(call);
-        });
-
-        peer.on('error', (err) => {
-          console.warn("PeerJS error:", err);
-        });
-
-        // 部屋内のVCメンバーリストを監視
         if (db) {
+          db.ref(`rooms/${roomKey}/vc_members/${myId}`).set({
+            userId: myId,
+            name: appState.userName || 'メンバー',
+            joinedAt: Date.now()
+          });
+          db.ref(`rooms/${roomKey}/vc_members/${myId}`).onDisconnect().remove();
+
+          // 部屋内のVC参加者を監視
           vcMembersRef = db.ref(`rooms/${roomKey}/vc_members`);
           vcMembersRef.on('value', (snapshot) => {
             vcMembers = snapshot.val() || {};
             if (isVcConnected) {
-              connectToOtherVcPeers(roomKey);
+              connectToAllPeers(roomKey);
             }
+          });
+
+          // WebRTCシグナリング受領 (Offer / Answer / ICE)
+          vcSignalsRef = db.ref(`rooms/${roomKey}/vc_signals/${myId}`);
+          vcSignalsRef.on('child_added', async (snapshot) => {
+            const signalData = snapshot.val();
+            if (!signalData) return;
+            const fromId = signalData.from;
+
+            if (signalData.type === 'offer') {
+              await handleOffer(roomKey, fromId, signalData.sdp);
+            } else if (signalData.type === 'answer') {
+              await handleAnswer(fromId, signalData.sdp);
+            } else if (signalData.type === 'candidate') {
+              await handleCandidate(fromId, signalData.candidate);
+            }
+            snapshot.ref.remove();
           });
         }
       }
 
-      function connectToOtherVcPeers(roomKey) {
-        Object.values(vcMembers).forEach(member => {
-          if (member.userId !== myId && member.peerId && !peerCalls[member.peerId]) {
-            const call = peer.call(member.peerId, localStream);
-            if (call) {
-              handlePeerStream(call);
-            }
+      function connectToAllPeers(roomKey) {
+        Object.keys(vcMembers).forEach(targetId => {
+          if (targetId !== myId && !rtcConnections[targetId]) {
+            createOffer(roomKey, targetId);
           }
         });
       }
 
-      function handlePeerStream(call) {
-        peerCalls[call.peer] = call;
+      function createPeerConnection(roomKey, targetId) {
+        const pc = new RTCPeerConnection(rtcConfig);
+        rtcConnections[targetId] = pc;
 
-        call.on('stream', (remoteStream) => {
-          if (!remoteAudioElements[call.peer]) {
+        if (localStream) {
+          localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        }
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate && db) {
+            db.ref(`rooms/${roomKey}/vc_signals/${targetId}`).push({
+              from: myId,
+              type: 'candidate',
+              candidate: event.candidate.toJSON()
+            });
+          }
+        };
+
+        pc.ontrack = (event) => {
+          if (!remoteAudioElements[targetId]) {
             const audio = new Audio();
-            audio.srcObject = remoteStream;
+            audio.srcObject = event.streams[0];
             audio.autoplay = true;
-            audio.volume = Math.min(1.0, (parseFloat(vcOutputVol.value) || 100) / 100);
-            remoteAudioElements[call.peer] = audio;
+            audio.volume = Math.min(1.0, (parseFloat(appState.vcOutputVol) || 100) / 100);
+            remoteAudioElements[targetId] = audio;
           }
-        });
+        };
 
-        call.on('close', () => {
-          if (remoteAudioElements[call.peer]) {
-            remoteAudioElements[call.peer].pause();
-            delete remoteAudioElements[call.peer];
+        pc.onconnectionstatechange = () => {
+          if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+            closePeerConnection(targetId);
           }
-          delete peerCalls[call.peer];
-        });
+        };
+
+        return pc;
+      }
+
+      async function createOffer(roomKey, targetId) {
+        const pc = createPeerConnection(roomKey, targetId);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        if (db) {
+          db.ref(`rooms/${roomKey}/vc_signals/${targetId}`).push({
+            from: myId,
+            type: 'offer',
+            sdp: offer.sdp
+          });
+        }
+      }
+
+      async function handleOffer(roomKey, fromId, sdp) {
+        const pc = createPeerConnection(roomKey, fromId);
+        await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp }));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        if (db) {
+          db.ref(`rooms/${roomKey}/vc_signals/${fromId}`).push({
+            from: myId,
+            type: 'answer',
+            sdp: answer.sdp
+          });
+        }
+      }
+
+      async function handleAnswer(fromId, sdp) {
+        const pc = rtcConnections[fromId];
+        if (pc && pc.signalingState !== 'stable') {
+          await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp }));
+        }
+      }
+
+      async function handleCandidate(fromId, candidate) {
+        const pc = rtcConnections[fromId];
+        if (pc && candidate) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+        }
+      }
+
+      function closePeerConnection(targetId) {
+        if (rtcConnections[targetId]) {
+          rtcConnections[targetId].close();
+          delete rtcConnections[targetId];
+        }
+        if (remoteAudioElements[targetId]) {
+          remoteAudioElements[targetId].pause();
+          remoteAudioElements[targetId].srcObject = null;
+          delete remoteAudioElements[targetId];
+        }
       }
 
       function startSpeakingDetector() {
@@ -589,40 +686,30 @@
         if (curRoom && db) {
           const roomKey = getRoomFirebaseKey(curRoom);
           db.ref(`rooms/${roomKey}/vc_members/${myId}`).remove();
+          db.ref(`rooms/${roomKey}/vc_signals/${myId}`).remove();
           if (vcMembersRef) vcMembersRef.off();
+          if (vcSignalsRef) vcSignalsRef.off();
         }
 
-        Object.values(peerCalls).forEach(call => call.close());
-        peerCalls = {};
-
-        Object.values(remoteAudioElements).forEach(audio => {
-          audio.pause();
-          audio.srcObject = null;
-        });
-        remoteAudioElements = {};
+        Object.keys(rtcConnections).forEach(targetId => closePeerConnection(targetId));
+        rtcConnections = {};
 
         if (localStream) {
           localStream.getTracks().forEach(track => track.stop());
           localStream = null;
         }
 
-        if (peer) {
-          peer.destroy();
-          peer = null;
-        }
-
         isVcConnected = false;
         isMicMuted = false;
-        vcMuteBtn.textContent = '🎙️ ON';
+        vcMuteBtn.textContent = '🎙️ マイクON';
         vcMuteBtn.style.background = '';
         vcToggleBtn.classList.remove('active');
-        vcToggleBtn.textContent = '🎤 VC';
+        vcToggleBtn.textContent = '🎤 VC参加';
         vcControlBar.style.display = 'none';
 
         const myBadge = membersList.querySelector('.avatar-badge');
         if (myBadge) myBadge.classList.remove('speaking');
       }
-
 
       if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
@@ -708,6 +795,8 @@
         userNameInput.value = appState.userName || '';
         userAvatarCharInput.value = appState.userAvatarChar || '';
         myStatusSelect.value = appState.userStatus;
+        syncVolumeSliders(appState.vcInputVol || 100, appState.vcOutputVol || 100);
+
         updateRoomSelectorUI();
         applyPinState(appState.isPinned);
         applyRoomTheme();
@@ -866,7 +955,6 @@
         if (!curRoom) return;
         isInitialLoad = true;
 
-        // 部屋切り替え時は自動的に現在のVCから退出（部屋貫通100%防止）
         if (isVcConnected) {
           leaveVc();
         }
@@ -1045,6 +1133,11 @@
           if (btn.dataset.shape === selectedAvatarShape) btn.classList.add('active');
           else btn.classList.remove('active');
         });
+
+        configVcInputVol.value = appState.vcInputVol || 100;
+        configVcInputVolVal.textContent = (appState.vcInputVol || 100) + '%';
+        configVcOutputVol.value = appState.vcOutputVol || 100;
+        configVcOutputVolVal.textContent = (appState.vcOutputVol || 100) + '%';
 
         const curRoom = getCurrentRoom();
         if (curRoom) {
