@@ -9,13 +9,15 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20260807_8">
+  <link rel="stylesheet" href="styles.css?v=20260816_1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <!-- Firebase SDKs (v9 Compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <!-- PeerJS WebRTC Library -->
+  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 </head>
 <body>
 
@@ -30,6 +32,7 @@
         <span id="roomKeyTag" style="font-size:8px; opacity:0.6; margin-left:4px; font-weight:normal;"></span>
       </div>
       <div class="header-actions">
+        <button id="vcToggleBtn" class="vc-join-btn" title="ルーム別ボイスチャットに参加">🎤 VC</button>
         <button id="soundToggleBtn" class="icon-btn active" title="通知音 (ON/OFF)">🔊</button>
         <button id="pinBtn" class="icon-btn" title="最前面にピン留め (ON/OFF)">📌</button>
         <button id="configBtn" class="icon-btn" title="現在の部屋の設定・変更">⚙️</button>
@@ -50,6 +53,25 @@
     <section class="members-bar">
       <div class="members-label">メンバー (在席):</div>
       <div class="members-list" id="membersList"></div>
+    </section>
+
+    <!-- 🎙️ ボイスチャット (VC) コントロールバー (参加時のみ表示) -->
+    <section class="vc-bar" id="vcControlBar" style="display: none;">
+      <div style="display:flex; align-items:center; gap:4px;">
+        <span style="color:#10b981; font-weight:bold;">🟢 VC接続中</span>
+        <button id="vcMuteBtn" class="small-btn" style="padding:2px 6px;" title="マイクMute切替">🎙️ ON</button>
+      </div>
+      <div class="vc-controls">
+        <div class="vc-slider-group" title="マイク入力マスター音量">
+          <span>🎤入力</span>
+          <input type="range" id="vcInputVol" min="0" max="150" value="100">
+        </div>
+        <div class="vc-slider-group" title="スピーカー出力マスター音量">
+          <span>🔊出力</span>
+          <input type="range" id="vcOutputVol" min="0" max="100" value="100">
+        </div>
+        <button id="vcLeaveBtn" class="small-btn danger-btn" style="padding:2px 6px;" title="VCを退出">🚪 退出</button>
+      </div>
     </section>
 
     <!-- ツールバー (ログクリア 🧹 / コピー 📋 / ステータス変更) -->
@@ -290,6 +312,14 @@
       const removeFileBtn = document.getElementById('removeFileBtn');
       const quickStampsArea = document.getElementById('quickStampsArea');
 
+      // VC 関連 DOM
+      const vcToggleBtn = document.getElementById('vcToggleBtn');
+      const vcControlBar = document.getElementById('vcControlBar');
+      const vcMuteBtn = document.getElementById('vcMuteBtn');
+      const vcInputVol = document.getElementById('vcInputVol');
+      const vcOutputVol = document.getElementById('vcOutputVol');
+      const vcLeaveBtn = document.getElementById('vcLeaveBtn');
+
       const lightboxModal = document.getElementById('lightboxModal');
       const lightboxImg = document.getElementById('lightboxImg');
 
@@ -358,6 +388,241 @@
       let currentLatestMsgRef = null;
       let currentLastReadRef = null;
       let currentMembersRef = null;
+
+      // ==========================================
+      // 🎙️ ボイスチャット (VC) WebRTC エンジン
+      // ==========================================
+      let peer = null;
+      let localStream = null;
+      let isVcConnected = false;
+      let isMicMuted = false;
+      let peerCalls = {};
+      let remoteAudioElements = {};
+      let vcMembersRef = null;
+      let vcMembers = {};
+      let audioCtx = null;
+      let inputGainNode = null;
+      let outputGainNode = null;
+      let localAnalyser = null;
+
+      function initWebAudio() {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          inputGainNode = audioCtx.createGain();
+          outputGainNode = audioCtx.createGain();
+          inputGainNode.gain.value = (parseFloat(vcInputVol.value) || 100) / 100;
+          outputGainNode.gain.value = (parseFloat(vcOutputVol.value) || 100) / 100;
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      }
+
+      vcToggleBtn.addEventListener('click', () => {
+        if (isVcConnected) {
+          leaveVc();
+        } else {
+          joinVc();
+        }
+      });
+
+      vcMuteBtn.addEventListener('click', () => {
+        if (!localStream) return;
+        isMicMuted = !isMicMuted;
+        localStream.getAudioTracks().forEach(track => track.enabled = !isMicMuted);
+        if (isMicMuted) {
+          vcMuteBtn.textContent = '🔇 MUTE';
+          vcMuteBtn.style.background = '#f43f5e';
+          vcMuteBtn.style.color = '#ffffff';
+        } else {
+          vcMuteBtn.textContent = '🎙️ ON';
+          vcMuteBtn.style.background = '';
+          vcMuteBtn.style.color = '';
+        }
+      });
+
+      vcInputVol.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value) / 100;
+        if (inputGainNode) inputGainNode.gain.value = val;
+      });
+
+      vcOutputVol.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value) / 100;
+        if (outputGainNode) outputGainNode.gain.value = val;
+        Object.values(remoteAudioElements).forEach(audio => {
+          audio.volume = Math.min(1.0, val);
+        });
+      });
+
+      vcLeaveBtn.addEventListener('click', () => leaveVc());
+
+      async function joinVc() {
+        initWebAudio();
+        const curRoom = getCurrentRoom();
+        if (!curRoom) return;
+        const roomKey = getRoomFirebaseKey(curRoom);
+
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        } catch (err) {
+          alert('マイクのアクセスが拒否されたか、マイクが見つかりません。');
+          return;
+        }
+
+        // Web Audio API によるマイク感度ゲイン接続
+        try {
+          const source = audioCtx.createMediaStreamSource(localStream);
+          localAnalyser = audioCtx.createAnalyser();
+          source.connect(inputGainNode);
+          source.connect(localAnalyser);
+          startSpeakingDetector();
+        } catch (e) {}
+
+        const peerIdStr = `deskchat_${roomKey}_${myId}`;
+        
+        peer = new Peer(peerIdStr, {
+          debug: 0
+        });
+
+        peer.on('open', (id) => {
+          isVcConnected = true;
+          vcToggleBtn.classList.add('active');
+          vcToggleBtn.textContent = '🎙️ VC接続中';
+          vcControlBar.style.display = 'flex';
+
+          if (db) {
+            db.ref(`rooms/${roomKey}/vc_members/${myId}`).set({
+              userId: myId,
+              peerId: id,
+              name: appState.userName || 'メンバー',
+              joinedAt: Date.now()
+            });
+            db.ref(`rooms/${roomKey}/vc_members/${myId}`).onDisconnect().remove();
+          }
+
+          // 他の既に参加しているメンバーへ発信
+          connectToOtherVcPeers(roomKey);
+        });
+
+        // 着信の受領
+        peer.on('call', (call) => {
+          call.answer(localStream);
+          handlePeerStream(call);
+        });
+
+        peer.on('error', (err) => {
+          console.warn("PeerJS error:", err);
+        });
+
+        // 部屋内のVCメンバーリストを監視
+        if (db) {
+          vcMembersRef = db.ref(`rooms/${roomKey}/vc_members`);
+          vcMembersRef.on('value', (snapshot) => {
+            vcMembers = snapshot.val() || {};
+            if (isVcConnected) {
+              connectToOtherVcPeers(roomKey);
+            }
+          });
+        }
+      }
+
+      function connectToOtherVcPeers(roomKey) {
+        Object.values(vcMembers).forEach(member => {
+          if (member.userId !== myId && member.peerId && !peerCalls[member.peerId]) {
+            const call = peer.call(member.peerId, localStream);
+            if (call) {
+              handlePeerStream(call);
+            }
+          }
+        });
+      }
+
+      function handlePeerStream(call) {
+        peerCalls[call.peer] = call;
+
+        call.on('stream', (remoteStream) => {
+          if (!remoteAudioElements[call.peer]) {
+            const audio = new Audio();
+            audio.srcObject = remoteStream;
+            audio.autoplay = true;
+            audio.volume = Math.min(1.0, (parseFloat(vcOutputVol.value) || 100) / 100);
+            remoteAudioElements[call.peer] = audio;
+          }
+        });
+
+        call.on('close', () => {
+          if (remoteAudioElements[call.peer]) {
+            remoteAudioElements[call.peer].pause();
+            delete remoteAudioElements[call.peer];
+          }
+          delete peerCalls[call.peer];
+        });
+      }
+
+      function startSpeakingDetector() {
+        if (!localAnalyser) return;
+        const dataArray = new Uint8Array(localAnalyser.frequencyBinCount);
+
+        function checkVolume() {
+          if (!isVcConnected) return;
+          localAnalyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sum += dataArray[i];
+          }
+          const average = sum / dataArray.length;
+          const myBadge = membersList.querySelector('.avatar-badge');
+
+          if (average > 25 && !isMicMuted) {
+            if (myBadge) myBadge.classList.add('speaking');
+          } else {
+            if (myBadge) myBadge.classList.remove('speaking');
+          }
+
+          requestAnimationFrame(checkVolume);
+        }
+        checkVolume();
+      }
+
+      function leaveVc() {
+        const curRoom = getCurrentRoom();
+        if (curRoom && db) {
+          const roomKey = getRoomFirebaseKey(curRoom);
+          db.ref(`rooms/${roomKey}/vc_members/${myId}`).remove();
+          if (vcMembersRef) vcMembersRef.off();
+        }
+
+        Object.values(peerCalls).forEach(call => call.close());
+        peerCalls = {};
+
+        Object.values(remoteAudioElements).forEach(audio => {
+          audio.pause();
+          audio.srcObject = null;
+        });
+        remoteAudioElements = {};
+
+        if (localStream) {
+          localStream.getTracks().forEach(track => track.stop());
+          localStream = null;
+        }
+
+        if (peer) {
+          peer.destroy();
+          peer = null;
+        }
+
+        isVcConnected = false;
+        isMicMuted = false;
+        vcMuteBtn.textContent = '🎙️ ON';
+        vcMuteBtn.style.background = '';
+        vcToggleBtn.classList.remove('active');
+        vcToggleBtn.textContent = '🎤 VC';
+        vcControlBar.style.display = 'none';
+
+        const myBadge = membersList.querySelector('.avatar-badge');
+        if (myBadge) myBadge.classList.remove('speaking');
+      }
+
 
       if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
         Notification.requestPermission();
@@ -600,6 +865,11 @@
         const curRoom = getCurrentRoom();
         if (!curRoom) return;
         isInitialLoad = true;
+
+        // 部屋切り替え時は自動的に現在のVCから退出（部屋貫通100%防止）
+        if (isVcConnected) {
+          leaveVc();
+        }
 
         const roomKey = getRoomFirebaseKey(curRoom);
         const purgeTime = curRoom.purgeTime || '00:00';
@@ -1096,19 +1366,22 @@
         const displayName = (appState.userName || '').trim() || 'メンバー';
         const customAvatarChar = (appState.userAvatarChar || '').trim();
         const myAvatar = customAvatarChar ? customAvatarChar.charAt(0) : displayName.charAt(0).toUpperCase();
-        addAvatarBadge(myAvatar, `${displayName} (${appState.userStatus})`, true, selectedAvatarShape);
+        
+        const isMyVcActive = isVcConnected;
+        addAvatarBadge(myAvatar, `${displayName} (${appState.userStatus}) ${isMyVcActive ? '🎤VC接続中' : ''}`, true, selectedAvatarShape, isMyVcActive);
 
         Object.values(activeMembers).forEach(m => {
           if (m.id !== myId && m.groupId === roomKey) {
-            addAvatarBadge(m.avatarLetter, `${m.name} (${m.status})`, true, m.avatarShape || 'shape-circle');
+            const isPeerVc = !!vcMembers[m.id];
+            addAvatarBadge(m.avatarLetter, `${m.name} (${m.status}) ${isPeerVc ? '🎤VC接続中' : ''}`, true, m.avatarShape || 'shape-circle', isPeerVc);
           }
         });
       }
 
-      function addAvatarBadge(letter, titleText, isOnline, shapeClass) {
+      function addAvatarBadge(letter, titleText, isOnline, shapeClass, isVcActive) {
         const badge = document.createElement('div');
         const shape = shapeClass || 'shape-circle';
-        badge.className = `avatar-badge ${shape} ${isOnline ? 'online' : ''}`;
+        badge.className = `avatar-badge ${shape} ${isOnline ? 'online' : ''} ${isVcActive ? 'speaking' : ''}`;
         badge.textContent = letter;
         badge.title = titleText;
         membersList.appendChild(badge);
@@ -1161,7 +1434,6 @@
         });
       }
 
-      // URLをハイパーリンク（クリック可能な<a>タグ）に自動変換する関数
       function linkifyText(text) {
         if (!text) return '';
         const escaped = escapeHTML(text);
@@ -1169,7 +1441,6 @@
         return escaped.replace(urlPattern, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
       }
 
-      // 画像拡大モーダル（ライトボックス）を表示する関数
       window.openLightbox = function(src) {
         lightboxImg.src = src;
         lightboxModal.style.display = 'flex';
@@ -1205,10 +1476,8 @@
           const fileType = (msg.file.type || '').toLowerCase();
           
           if (fileType.startsWith('image/')) {
-            // 画像サムネイル ➔ クリックで拡大モーダル表示
             bodyContent += `<div style="margin-top:4px;"><img src="${msg.file.data}" class="attached-image-thumb" onclick="openLightbox('${msg.file.data}')" title="クリックで拡大表示" /></div>`;
           } else {
-            // Excel / Word / PDF などのファイルアイコン自動選択
             let fileIcon = '💾';
             if (fileName.match(/\.(xlsx|xls|csv)$/i)) fileIcon = '📊';
             else if (fileName.match(/\.(docx|doc|txt)$/i)) fileIcon = '📝';
@@ -1267,7 +1536,6 @@
         if (db) {
           db.ref(`rooms/${roomKey}/messages/${msgId}`).remove();
         } else {
-          currentMessages.push(msgObj);
           currentMessages = currentMessages.filter(m => m.id !== msgId);
           const elem = document.getElementById(`msg_${msgId}`);
           if (elem) elem.remove();

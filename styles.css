@@ -446,12 +446,75 @@ html, body {
   cursor: zoom-out;
 }
 
-.lightbox-img {
-  max-width: 90vw;
-  max-height: 90vh;
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  object-fit: contain;
+/* ボイスチャット (VC) バー */
+.vc-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.9);
+  border-bottom: 1px solid var(--accent-color, #6366f1);
+  padding: 4px 8px;
+  font-size: 10.5px;
+  color: #e2e8f0;
+}
+
+.vc-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vc-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+}
+
+.vc-slider-group input[type="range"] {
+  width: 50px;
+  height: 4px;
+  accent-color: var(--accent-color, #6366f1);
+  cursor: pointer;
+}
+
+/* VC参加ボタン */
+.vc-join-btn {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  border: 1px solid #6366f1;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.2s ease;
+}
+
+.vc-join-btn:hover {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+.vc-join-btn.active {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+}
+
+/* 発言中アバターリング演出 */
+.avatar-badge.speaking {
+  box-shadow: 0 0 0 2px #10b981, 0 0 8px #10b981;
+  animation: pulseSpeaking 1.2s infinite ease-in-out;
+}
+
+@keyframes pulseSpeaking {
+  0% { box-shadow: 0 0 0 2px #10b981, 0 0 4px #10b981; }
+  50% { box-shadow: 0 0 0 4px #10b981, 0 0 12px #10b981; }
+  100% { box-shadow: 0 0 0 2px #10b981, 0 0 4px #10b981; }
 }
 
 @keyframes fadeIn {

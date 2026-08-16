@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "micro-office-chat-app",
     "public": ".",
     "ignore": [
       "firebase.json",
