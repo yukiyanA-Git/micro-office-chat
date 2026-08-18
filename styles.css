@@ -505,54 +505,92 @@ html, body {
   border-color: #059669;
 }
 
-/* アプリ一番下部: 収益化 広告バナーエリア (Chronosスタイル) */
+/* ============================================================
+   💎 Chronos直伝 高級アクリル額縁 広告フレーム (Luxury Acrylic Ad Frame)
+   ============================================================ */
 .ad-banner-container {
   width: 100%;
-  background: rgba(15, 23, 42, 0.95);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 6px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  padding: 6px 10px;
   box-sizing: border-box;
-  position: relative;
-  min-height: 52px;
-  flex-shrink: 0; /* 高さが縮んでも絶対につぶれず画面下に固定表示 */
+  flex-shrink: 0;
   margin-top: auto;
   z-index: 10;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.ad-label {
-  font-size: 8px;
-  color: #64748b;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  margin-bottom: 2px;
-  align-self: flex-start;
-}
-
-.ad-banner-content {
+.acrylic-ad-frame {
+  position: relative;
   width: 100%;
-  max-width: 320px;
-  height: 44px;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
-  border: 1px dashed rgba(99, 102, 241, 0.3);
-  border-radius: 6px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 
+      inset 0 1px 1px rgba(255, 255, 255, 0.3),
+      inset 0 -1px 1px rgba(0, 0, 0, 0.3),
+      0 6px 20px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: block;
+}
+
+.acrylic-ad-frame:hover {
+  border-color: rgba(212, 175, 55, 0.5);
+  box-shadow: 
+      inset 0 1px 2px rgba(255, 255, 255, 0.5),
+      0 8px 24px rgba(0, 0, 0, 0.45),
+      0 0 15px rgba(212, 175, 55, 0.2);
+}
+
+.acrylic-ad-inner {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px 4px 10px;
+}
+
+.acrylic-ad-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
-  font-size: 10px;
-  text-decoration: none;
-  overflow: hidden;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  min-height: 32px;
 }
 
-.ad-banner-content:hover {
-  border-color: var(--accent-color, #6366f1);
-  background: linear-gradient(135deg, rgba(30, 41, 59, 1), rgba(30, 58, 138, 0.4));
+.ad-placeholder-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
   color: #e2e8f0;
+  opacity: 0.9;
+  letter-spacing: 0.5px;
+}
+
+.ad-sparkle-icon {
+  color: #d4af37;
+  font-size: 13px;
+}
+
+/* かっこいい下部 SPONSORED ラベル */
+.acrylic-ad-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-top: 3px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  margin-top: 3px;
+}
+
+.sponsored-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 3.5px;
+  color: rgba(212, 175, 55, 0.9);
+  text-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 @keyframes pulseSpeaking {
