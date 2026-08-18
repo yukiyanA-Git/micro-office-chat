@@ -28,13 +28,14 @@
 html, body {
   width: 100%;
   height: 100%;
-  height: 100dvh;
+  height: 100dvh; /* スマホのアドレスバー伸縮考慮 Dynamic Viewport */
   background-color: var(--bg-primary);
   color: var(--text-main);
   font-size: 11px;
   overflow: hidden;
 }
 
+/* メインチャットコンテナ（スマホアドレスバー対応 dvh ） */
 .chat-container {
   width: 100vw;
   height: 100vh;
@@ -52,6 +53,7 @@ html, body {
   box-shadow: 0 0 15px var(--accent-light);
 }
 
+/* ヘッダー */
 .app-header {
   background: rgba(15, 18, 28, 0.85);
   padding: 5px 8px;
@@ -297,10 +299,266 @@ html, body {
 
 .msg-item {
   display: flex;
-  gap: 5px;
-  align-items: flex-start;
-  animation: fadeIn 0.15s ease-out;
+  gap: 6px;
+  align-items: flex-end;
   position: relative;
+  margin-bottom: 6px;
+}
+
+/* 自分の発言（右寄せ ＆ マイカラー背景） */
+.msg-item.self-msg {
+  flex-direction: row-reverse;
+  align-self: flex-end;
+}
+
+.msg-body {
+  display: flex;
+  flex-direction: column;
+  max-width: 82%;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 10px;
+  border-radius: 12px;
+  border-top-left-radius: 2px;
+}
+
+.msg-item.self-msg .msg-body {
+  background: var(--accent-light, rgba(99, 102, 241, 0.22));
+  border: 1px solid var(--accent-color, #6366f1);
+  border-radius: 12px;
+  border-top-right-radius: 2px;
+}
+
+.msg-footer-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 9.5px;
+  color: #94a3b8;
+  width: 100%;
+}
+
+.msg-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.msg-time {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* アバター形状カスタマイズ */
+.avatar-badge, .msg-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  min-width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, var(--accent-color, #6366f1), #4338ca);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+/* アバター形状: 丸 (デフォルト) */
+.shape-circle {
+  border-radius: 50%;
+}
+
+/* アバター形状: 角丸四角 */
+.shape-square {
+  border-radius: 6px;
+}
+
+/* アバター形状: 六角形風 */
+.shape-hexagon {
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  border-radius: 0;
+}
+
+/* URL ハイパーリンク */
+.msg-text a {
+  color: #60a5fa;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.msg-text a:hover {
+  color: #93c5fd;
+}
+
+/* 添付ファイル・画像スタイル */
+.attached-image-thumb {
+  max-width: 100%;
+  max-height: 160px;
+  border-radius: 6px;
+  margin-top: 4px;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.attached-image-thumb:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.attached-file-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #e2e8f0;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.attached-file-box:hover {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: var(--accent-color, #6366f1);
+}
+
+/* 画像拡大(ライトボックス)モーダル */
+.lightbox-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+
+/* ボイスチャット (VC) バー */
+.vc-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.9);
+  border-bottom: 1px solid var(--accent-color, #6366f1);
+  padding: 4px 8px;
+  font-size: 10.5px;
+  color: #e2e8f0;
+}
+
+.vc-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vc-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+}
+
+.vc-slider-group input[type="range"] {
+  width: 50px;
+  height: 4px;
+  accent-color: var(--accent-color, #6366f1);
+  cursor: pointer;
+}
+
+/* VC参加ボタン */
+.vc-join-btn {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  border: 1px solid #6366f1;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.2s ease;
+}
+
+.vc-join-btn:hover {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+.vc-join-btn.active {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+}
+
+/* アプリ一番下部: 収益化 広告バナーエリア (Chronosスタイル) */
+.ad-banner-container {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  position: relative;
+  min-height: 52px;
+  flex-shrink: 0; /* 高さが縮んでも絶対につぶれず画面下に固定表示 */
+  margin-top: auto;
+  z-index: 10;
+}
+
+.ad-label {
+  font-size: 8px;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  align-self: flex-start;
+}
+
+.ad-banner-content {
+  width: 100%;
+  max-width: 320px;
+  height: 44px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+  border: 1px dashed rgba(99, 102, 241, 0.3);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 10px;
+  text-decoration: none;
+  overflow: hidden;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.ad-banner-content:hover {
+  border-color: var(--accent-color, #6366f1);
+  background: linear-gradient(135deg, rgba(30, 41, 59, 1), rgba(30, 58, 138, 0.4));
+  color: #e2e8f0;
+}
+
+@keyframes pulseSpeaking {
+  0% { box-shadow: 0 0 0 2px #10b981, 0 0 4px #10b981; }
+  50% { box-shadow: 0 0 0 4px #10b981, 0 0 12px #10b981; }
+  100% { box-shadow: 0 0 0 2px #10b981, 0 0 4px #10b981; }
 }
 
 @keyframes fadeIn {
@@ -673,9 +931,10 @@ html, body {
   cursor: pointer;
 }
 
+/* モバイル表示（スマホ対応 dvh 調整） */
 @media (max-width: 600px) {
   .chat-container {
-    height: 100dvh;
+    height: 100dvh; /* iOS Safari / Android Chrome のアドレスバー完全考慮 */
   }
   .quick-stamps {
     max-height: 80px;
@@ -683,4 +942,85 @@ html, body {
   .chat-input-area {
     padding-bottom: max(6px, env(safe-area-inset-bottom));
   }
+}
+
+/* アプリ一番下部: 収益化 広告バナーエリア (Chronos アクリルガラスモルフィズムスタイル) */
+.ad-banner-container {
+  width: 100%;
+  padding: 6px 8px 4px 8px;
+  box-sizing: border-box;
+  position: relative;
+  flex-shrink: 0;
+  margin-top: auto;
+  z-index: 10;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.acrylic-ad-frame {
+  position: relative;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 
+    inset 0 1px 1px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.3),
+    0 4px 16px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.acrylic-ad-frame:hover {
+  border-color: rgba(212, 175, 55, 0.5);
+  box-shadow: 
+    inset 0 1px 2px rgba(255, 255, 255, 0.5),
+    0 6px 20px rgba(0, 0, 0, 0.45),
+    0 0 12px rgba(212, 175, 55, 0.2);
+}
+
+.acrylic-ad-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  text-decoration: none;
+  color: #e2e8f0;
+  min-height: 28px;
+}
+
+.ad-placeholder-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #cbd5e1;
+  letter-spacing: 0.5px;
+}
+
+.ad-sparkle-icon {
+  color: #d4af37;
+  font-size: 11px;
+}
+
+.acrylic-ad-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2px 0 3px 0;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.sponsored-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 3.5px;
+  color: rgba(212, 175, 55, 0.9);
+  text-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
