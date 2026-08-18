@@ -16,6 +16,8 @@
   <!-- Firebase SDKs (v9 Compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5012440476019514" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -125,10 +127,15 @@
 
     <!-- 📢 最下部: 収益化 広告バナーエリア (Chronos直伝 Luxury Acrylic Ad Frame) -->
     <section class="ad-banner-container" id="adBannerArea">
-      <a href="#" target="_blank" rel="noopener noreferrer" class="acrylic-ad-frame bottom-ad" id="adBannerLink">
+      <div class="acrylic-ad-frame bottom-ad" id="adBannerLink">
         <div class="acrylic-ad-inner">
           <div class="acrylic-ad-content">
-            <div class="ad-placeholder-text">
+            <ins class="adsbygoogle"
+                 style="display:block; width:100%; height:100%;"
+                 data-ad-client="ca-pub-5012440476019514"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+            <div class="ad-placeholder-text" style="pointer-events: none;">
               <span class="ad-sparkle-icon">✨</span>
               <span>PREMIUM PARTNER / 広告掲載スペース</span>
             </div>
@@ -137,7 +144,7 @@
             <span class="sponsored-label">S P O N S O R E D</span>
           </div>
         </div>
-      </a>
+      </div>
     </section>
 
   </div>
