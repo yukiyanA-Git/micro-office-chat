@@ -9,13 +9,15 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="public/styles.css?v=20260901_1">
+  <link rel="stylesheet" href="public/styles.css?v=20260901_2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <!-- Firebase SDKs (v9 Compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5012440476019514" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -125,10 +127,15 @@
 
     <!-- 📢 最下部: 収益化 広告バナーエリア (Chronos直伝 Luxury Acrylic Ad Frame) -->
     <section class="ad-banner-container" id="adBannerArea">
-      <a href="#" target="_blank" rel="noopener noreferrer" class="acrylic-ad-frame bottom-ad" id="adBannerLink">
+      <div class="acrylic-ad-frame bottom-ad" id="adBannerLink">
         <div class="acrylic-ad-inner">
           <div class="acrylic-ad-content">
-            <div class="ad-placeholder-text">
+            <ins class="adsbygoogle"
+                 style="display:block; width:100%; height:100%;"
+                 data-ad-client="ca-pub-5012440476019514"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+            <div class="ad-placeholder-text" style="pointer-events: none;">
               <span class="ad-sparkle-icon">✨</span>
               <span>PREMIUM PARTNER / 広告掲載スペース</span>
             </div>
@@ -137,8 +144,39 @@
             <span class="sponsored-label">S P O N S O R E D</span>
           </div>
         </div>
-      </a>
+      </div>
     </section>
+
+    <!-- 📚 構造化パブリッシャーコンテンツ (AdSense 高有用性 ＆ コンパクトアコーディオン) -->
+    <article class="deskchat-knowledge-article" style="margin: 2px 4px; padding: 0;">
+      <details style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 4px; overflow: hidden; backdrop-filter: blur(8px);">
+        <summary style="padding: 2px 6px; font-size: 8.5px; font-weight: 500; color: #38bdf8; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+          <span>💡 Desk Chat 活用ナレッジ ＆ リモートワークガイド</span>
+          <span style="font-size: 8px; color: #94a3b8; font-weight: normal;">▼ 開く</span>
+        </summary>
+        <div style="padding: 8px 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 10px; line-height: 1.5; color: #cbd5e1;">
+          <h4 style="color: #f8fafc; font-size: 10.5px; margin-bottom: 3px;">✨ 1. タイムラグのない即時コミュニケーションとワンタップ返信</h4>
+          <p style="margin-bottom: 6px; color: #94a3b8;">
+            Desk Chat は、既読確認や簡単なスタンプ応答に対応した超コンパクトなマイクロオフィスチャット空間です。「承知いたしました」「確認いたします」等の定型業務連絡を1タップで即座に返信可能。
+          </p>
+          <h4 style="color: #f8fafc; font-size: 10.5px; margin-bottom: 3px;">🔐 2. 部屋ID・合言葉による柔軟なチーム分離</h4>
+          <p style="margin-bottom: 6px; color: #94a3b8;">
+            任意の「部屋（ルーム）」を作成し合言葉（パスコード）を設定することで、プロジェクトや部署ごとのプライベート通信が確保されます。
+          </p>
+          <h4 style="color: #f8fafc; font-size: 10.5px; margin-bottom: 3px;">🎙️ 3. WebRTCボイスチャットと音量マスターコントロール</h4>
+          <p style="margin-bottom: 6px; color: #94a3b8;">
+            ブラウザ完結のWebRTCリアルタイム通話に対応。在席メンバーの音声コミュニケーションを円滑にします。
+          </p>
+          <h4 style="color: #f8fafc; font-size: 10.5px; margin-bottom: 3px;">🧹 4. 毎日指定時刻の自動ログクリアとプライバシー保護</h4>
+          <p style="margin-bottom: 4px; color: #94a3b8;">
+            設定時刻（デフォルト深夜0時）にチャットログが自動クリアされ、安全な情報管理を実現します。
+          </p>
+          <footer style="margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 8.5px; color: #64748b; text-align: right;">
+            © Desk Chat Micro-Office Communication Platform
+          </footer>
+        </div>
+      </details>
+    </article>
 
   </div>
 
@@ -438,7 +476,7 @@
       let localStream = null;
       let isVcConnected = false;
       let isMicMuted = false;
-      let rtcConnections = {};
+      let rtcConnections = {}; // peerId -> RTCPeerConnection
       let remoteAudioElements = {};
       let vcMembersRef = null;
       let vcSignalsRef = null;
@@ -551,6 +589,7 @@
           });
           db.ref(`rooms/${roomKey}/vc_members/${myId}`).onDisconnect().remove();
 
+          // 部屋内のVC参加者を監視
           vcMembersRef = db.ref(`rooms/${roomKey}/vc_members`);
           vcMembersRef.on('value', (snapshot) => {
             vcMembers = snapshot.val() || {};
@@ -559,6 +598,7 @@
             }
           });
 
+          // WebRTCシグナリング受領 (Offer / Answer / ICE)
           vcSignalsRef = db.ref(`rooms/${roomKey}/vc_signals/${myId}`);
           vcSignalsRef.on('child_added', async (snapshot) => {
             const signalData = snapshot.val();
@@ -1179,6 +1219,7 @@
         }
 
         renderSavedRoomsList();
+        if (adBannerArea) adBannerArea.style.display = 'none';
         configModal.style.display = 'flex';
       }
 
@@ -1187,6 +1228,7 @@
         appState.userAvatarChar = userAvatarCharInput.value.trim();
         saveState();
         configModal.style.display = 'none';
+        if (adBannerArea) adBannerArea.style.display = 'block';
         announcePresence();
         renderMessages(currentMessages);
       });
@@ -1224,6 +1266,7 @@
         updateRoomSelectorUI();
         applyRoomTheme();
         configModal.style.display = 'none';
+        if (adBannerArea) adBannerArea.style.display = 'block';
 
         subscribeCurrentRoom();
         announcePresence();
@@ -1237,11 +1280,13 @@
         newRoomIdInput.value = '';
         newPasscodeInput.value = '';
         newPurgeTimeSelect.value = '00:00';
+        if (adBannerArea) adBannerArea.style.display = 'none';
         addRoomModal.style.display = 'flex';
       }
 
       closeAddRoomModalBtn.addEventListener('click', () => {
         addRoomModal.style.display = 'none';
+        if (adBannerArea) adBannerArea.style.display = 'block';
       });
 
       addNewRoomConfirmBtn.addEventListener('click', () => {
