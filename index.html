@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20260818_fix">
+  <link rel="stylesheet" href="styles.css?v=20260901_1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -147,6 +147,37 @@
       </div>
     </section>
 
+    <!-- 📚 構造化パブリッシャーコンテンツ (AdSense 高有用性 ＆ コンパクトアコーディオン) -->
+    <article class="deskchat-knowledge-article" style="margin: 4px 6px 6px 6px; padding: 0;">
+      <details style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; overflow: hidden; backdrop-filter: blur(12px);">
+        <summary style="padding: 5px 8px; font-size: 9.5px; font-weight: 600; color: #38bdf8; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+          <span>💡 Desk Chat 活用ナレッジ ＆ リモートワークガイド</span>
+          <span style="font-size: 8.5px; color: #94a3b8; font-weight: normal;">▼ 開く</span>
+        </summary>
+        <div style="padding: 8px 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 10px; line-height: 1.5; color: #cbd5e1;">
+          <h4 style="color: #f8fafc; font-size: 10.5px; margin-bottom: 3px;">✨ 1. タイムラグのない即時コミュニケーションとワンタップ返信</h4>
+          <p style="margin-bottom: 6px; color: #94a3b8;">
+            Desk Chat は、既読確認や簡単なスタンプ応答に対応した超コンパクトなマイクロオフィスチャット空間です。「承知いたしました」「確認いたします」等の定型業務連絡を1タップで即座に返信可能。
+          </p>
+          <h4 style="color: #f8fafc; font-size: 10.5px; margin-bottom: 3px;">🔐 2. 部屋ID・合言葉による柔軟なチーム分離</h4>
+          <p style="margin-bottom: 6px; color: #94a3b8;">
+            任意の「部屋（ルーム）」を作成し合言葉（パスコード）を設定することで、プロジェクトや部署ごとのプライベート通信が確保されます。
+          </p>
+          <h4 style="color: #f8fafc; font-size: 10.5px; margin-bottom: 3px;">🎙️ 3. WebRTCボイスチャットと音量マスターコントロール</h4>
+          <p style="margin-bottom: 6px; color: #94a3b8;">
+            ブラウザ完結のWebRTCリアルタイム通話に対応。在席メンバーの音声コミュニケーションを円滑にします。
+          </p>
+          <h4 style="color: #f8fafc; font-size: 10.5px; margin-bottom: 3px;">🧹 4. 毎日指定時刻の自動ログクリアとプライバシー保護</h4>
+          <p style="margin-bottom: 4px; color: #94a3b8;">
+            設定時刻（デフォルト深夜0時）にチャットログが自動クリアされ、安全な情報管理を実現します。
+          </p>
+          <footer style="margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 8.5px; color: #64748b; text-align: right;">
+            © Desk Chat Micro-Office Communication Platform
+          </footer>
+        </div>
+      </details>
+    </article>
+
   </div>
 
   <!-- 【🖼️ 画像拡大 ライトボックス モーダル】 -->
@@ -248,6 +279,12 @@
 
       <h4>📋 参加中の部屋一覧（ID・合言葉・共有）</h4>
       <div id="savedRoomsList" class="saved-rooms-list"></div>
+
+      <!-- 💬 yukiyanArt 共通 Dark Glassmorphism サポートボタン -->
+      <a href="https://yukiyanart-feedback-hub.web.app/?app_id=desk_chat" target="_blank" rel="noopener noreferrer" class="yukiyanart-support-btn" title="ご意見・改善要望・不具合報告はこちら">
+        <span class="support-icon">💬</span>
+        <span>yukiyanArt フィードバック・サポート</span>
+      </a>
 
       <div class="modal-actions" style="justify-content: space-between;">
         <button id="resetStateBtn" class="danger-btn small-btn" style="padding: 4px 8px;">🗑️ 登録名をリセット</button>
@@ -1182,6 +1219,7 @@
         }
 
         renderSavedRoomsList();
+        if (adBannerArea) adBannerArea.style.display = 'none';
         configModal.style.display = 'flex';
       }
 
@@ -1190,6 +1228,7 @@
         appState.userAvatarChar = userAvatarCharInput.value.trim();
         saveState();
         configModal.style.display = 'none';
+        if (adBannerArea) adBannerArea.style.display = 'block';
         announcePresence();
         renderMessages(currentMessages);
       });
@@ -1227,6 +1266,7 @@
         updateRoomSelectorUI();
         applyRoomTheme();
         configModal.style.display = 'none';
+        if (adBannerArea) adBannerArea.style.display = 'block';
 
         subscribeCurrentRoom();
         announcePresence();
@@ -1240,11 +1280,13 @@
         newRoomIdInput.value = '';
         newPasscodeInput.value = '';
         newPurgeTimeSelect.value = '00:00';
+        if (adBannerArea) adBannerArea.style.display = 'none';
         addRoomModal.style.display = 'flex';
       }
 
       closeAddRoomModalBtn.addEventListener('click', () => {
         addRoomModal.style.display = 'none';
+        if (adBannerArea) adBannerArea.style.display = 'block';
       });
 
       addNewRoomConfirmBtn.addEventListener('click', () => {

@@ -931,16 +931,28 @@ html, body {
   cursor: pointer;
 }
 
-/* モバイル表示（スマホ対応 dvh 調整） */
+/* モバイル表示（スマホ対応 dvh 調整 ＆ タッチ領域最適化） */
 @media (max-width: 600px) {
   .chat-container {
-    height: 100dvh; /* iOS Safari / Android Chrome のアドレスバー完全考慮 */
+    min-height: 100dvh; /* iOS Safari / Android Chrome のアドレスバー完全考慮 */
   }
   .quick-stamps {
-    max-height: 80px;
+    max-height: 90px;
+    gap: 4px;
+  }
+  .stamp-btn {
+    padding: 6px 2px;
+    font-size: 10.5px;
   }
   .chat-input-area {
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .input-form input[type="text"] {
+    font-size: 16px; /* iOS Safari 入力時自動ズーム回避 */
+  }
+  .deskchat-knowledge-article {
+    margin: 16px 6px 12px 6px !important;
+    padding: 14px 10px !important;
   }
 }
 
@@ -1016,11 +1028,38 @@ html, body {
   background: rgba(0, 0, 0, 0.2);
 }
 
-.sponsored-label {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 3.5px;
-  color: rgba(212, 175, 55, 0.9);
-  text-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
-  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+/* yukiyanArt 共通 Dark Glassmorphism サポートボタン */
+.yukiyanart-support-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #f1f5f9;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.yukiyanart-support-btn:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(139, 92, 246, 0.15) 100%);
+  border-color: rgba(165, 180, 252, 0.4);
+  color: #ffffff;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4), 0 6px 20px rgba(99, 102, 241, 0.3);
+  transform: translateY(-1px);
+}
+
+.yukiyanart-support-btn .support-icon {
+  font-size: 13px;
 }
