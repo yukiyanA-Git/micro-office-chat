@@ -951,15 +951,15 @@ html, body {
     font-size: 16px; /* iOS Safari 入力時自動ズーム回避 */
   }
   .deskchat-knowledge-article {
-    margin: 16px 6px 12px 6px !important;
-    padding: 14px 10px !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 }
 
 /* アプリ一番下部: 収益化 広告バナーエリア (ウルトラ・スリムスタイル) */
 .ad-banner-container {
   width: 100%;
-  padding: 2px 4px;
+  padding: 0;
   box-sizing: border-box;
   position: relative;
   flex-shrink: 0;
