@@ -9,7 +9,7 @@
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="public/styles.css?v=20260901_4_ZERO_MARGIN">
+  <link rel="stylesheet" href="styles.css?v=20260903_1_MODAL_EXPAND">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -217,7 +217,7 @@
       <!-- 🎙️ ボイスチャット (VC) 音量マスター調整セクション -->
       <h4>🎙️ ボイスチャット (VC) Master 音量設定</h4>
       <div class="form-group">
-        <label for="configVcInputVol">🎤 マイク入力マスター音量: <span id="configVcInputVolVal">100%</span></label>
+        <label for="configVcInputVol">🎤 マイク入力マスター音量: <span id="configVcInputVolVal">100% (標準)</span></label>
         <input type="range" id="configVcInputVol" min="0" max="150" value="100" style="width:100%;">
       </div>
       <div class="form-group">
@@ -511,10 +511,18 @@
         }
       }
 
+      function formatMicVol(val) {
+        const v = parseInt(val, 10);
+        if (v === 100) return '100% (標準)';
+        if (v > 100) return v + '% (ブースト)';
+        return v + '%';
+      }
+
       function syncVolumeSliders(valInput, valOutput) {
         vcInputVol.value = valInput;
+        vcInputVol.title = 'マイク入力音量: ' + formatMicVol(valInput);
         configVcInputVol.value = valInput;
-        configVcInputVolVal.textContent = valInput + '%';
+        configVcInputVolVal.textContent = formatMicVol(valInput);
 
         vcOutputVol.value = valOutput;
         configVcOutputVol.value = valOutput;
@@ -1201,7 +1209,7 @@
         });
 
         configVcInputVol.value = appState.vcInputVol || 100;
-        configVcInputVolVal.textContent = (appState.vcInputVol || 100) + '%';
+        configVcInputVolVal.textContent = formatMicVol(appState.vcInputVol || 100);
         configVcOutputVol.value = appState.vcOutputVol || 100;
         configVcOutputVolVal.textContent = (appState.vcOutputVol || 100) + '%';
 

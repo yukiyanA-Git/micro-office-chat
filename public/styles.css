@@ -870,12 +870,13 @@ html, body {
 }
 
 .saved-rooms-list {
-  max-height: 90px;
+  max-height: 145px;
   overflow-y: auto;
   margin-top: 3px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
+  padding-right: 2px;
 }
 
 .saved-room-item {
@@ -883,9 +884,10 @@ html, body {
   justify-content: space-between;
   align-items: center;
   background: var(--bg-input);
-  padding: 3px 6px;
+  padding: 4px 6px;
   border-radius: var(--radius-sm);
   font-size: 9.5px;
+  flex-shrink: 0;
 }
 
 .remove-room-btn {
