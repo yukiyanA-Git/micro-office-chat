@@ -3,13 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Desk Chat（デスクチャット）は、PC画面の端（画面比1/15）に常駐固定できる超軽量オフィスチャット・WebRTCボイスチャットツールです。">
+  <meta name="keywords" content="Desk Chat, デスクチャット, オフィスチャット, テレワーク, WebRTC, ボイスチャット, プライバシーチャット">
+  <meta property="og:title" content="Desk Chat (デスクチャット) - ウルトラコンパクト・オフィスチャット">
+  <meta property="og:description" content="PC画面端に常駐できる超軽量オフィスチャット＆WebRTC通話ツール。">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Desk Chat (デスクチャット)</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=20260903_1_MODAL_EXPAND">
+  <link rel="stylesheet" href="styles.css?v=20260905_1_GUIDE_PORTAL">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -36,6 +40,7 @@
         <button id="soundToggleBtn" class="icon-btn active" title="通知音 (ON/OFF)">🔊</button>
         <button id="pinBtn" class="icon-btn" title="最前面にピン留め (ON/OFF)">📌</button>
         <button id="configBtn" class="icon-btn" title="現在の部屋の設定・音量調整">⚙️</button>
+        <a href="guide.html" target="_blank" rel="noopener noreferrer" class="icon-btn" title="公式活用ガイド＆議事録ツールを開く" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">📖</a>
         <button id="popoutBtn" class="icon-btn" title="小窓ポップアップ表示">↗️</button>
       </div>
     </header>
@@ -171,6 +176,9 @@
           <p style="margin-bottom: 4px; color: #94a3b8;">
             設定時刻（デフォルト深夜0時）にチャットログが自動クリアされ、安全な情報管理を実現します。
           </p>
+          <div style="margin-top: 8px; text-align: center;">
+            <a href="guide.html" target="_blank" rel="noopener noreferrer" style="display: inline-block; font-size: 9.5px; color: #38bdf8; text-decoration: none; padding: 3px 10px; border-radius: 4px; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25);">📖 公式マニュアル ＆ 議事録整形ポータルを開く ❯</a>
+          </div>
           <footer style="margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 8.5px; color: #64748b; text-align: right;">
             © Desk Chat Micro-Office Communication Platform
           </footer>
@@ -284,6 +292,12 @@
       <a href="https://yukiyanart-feedback-hub.web.app/?app_id=desk_chat" target="_blank" rel="noopener noreferrer" class="yukiyanart-support-btn" title="ご意見・改善要望・不具合報告はこちら">
         <span class="support-icon">💬</span>
         <span>yukiyanArt フィードバック・サポート</span>
+      </a>
+
+      <!-- 📖 公式ガイド ＆ 議事録ツール リンクボタン -->
+      <a href="guide.html" target="_blank" rel="noopener noreferrer" class="yukiyanart-support-btn" style="margin-top: 6px; background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%); border-color: rgba(56, 189, 248, 0.35);" title="公式活用マニュアル＆議事録整形ツールを別タブで開く">
+        <span class="support-icon">📖</span>
+        <span>公式活用ガイド ＆ 議事録ツール</span>
       </a>
 
       <div class="modal-actions" style="justify-content: space-between;">
